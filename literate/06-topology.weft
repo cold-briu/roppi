@@ -1,0 +1,286 @@
+\chapter{Topology}
+
+Recognition works on the shape of the rope, not on its pose. Three steps make
+that possible. The rope is closed, projected, and read as a knot diagram. Then
+one invariant is computed from the diagram. The determinant is the simplest, and
+it is the only one stage one uses.
+
+\section{Closure}
+
+A rope has two free ends, and a knot needs a closed loop. The two ends are joined
+through a point far behind the background. The joining path is never drawn. It
+is always behind the rope, so wherever it crosses the rope in the view, the rope
+lies over it. That is the physical picture of a rope lying in front of a wall,
+and it needs no special case in the code that follows.
+
+@d Topology: closure @{
+import type { Vec3 } from '../rope/snapshot';
+
+// How far behind the scene the joining path lies. Everything is closer than this.
+const BEHIND = 1000;
+
+// The rope's points, then two points far behind the last and first links. The
+// loop closes from the second far point back to the first link.
+export function closeRope(points: readonly Vec3[]): Vec3[] {
+  const first = points[0];
+  const last = points[points.length - 1];
+  return [
+    ...points,
+    { x: last.x, y: last.y, z: -BEHIND },
+    { x: first.x, y: first.y, z: -BEHIND },
+  ];
+}
+@}
+
+\section{Crossings and the Fox matrix}
+
+The viewer looks down the depth axis, so the diagram is the rope's projection
+onto the x and y plane. Two segments that cross in that plane form a crossing.
+The one with the greater depth is over. Depth is compared at the crossing point
+itself, not at the segment ends.
+
+Every crossing has one under-passage, which splits the under-strand into arcs.
+Walking along the loop, arc $j$ runs from under-passage $j$ to under-passage
+$j+1$. Each crossing touches three arcs: the arc entering its under-passage, the
+arc leaving it, and the arc that holds the over-strand. Fox colouring says that
+for every crossing, twice the over colour minus the two under colours is zero
+modulo the determinant. The coefficients of that condition form one row of the
+Fox matrix, and the determinant is read from that matrix.
+
+@d Topology: crossings and Fox matrix @{
+import type { Vec3 } from '../rope/snapshot';
+
+const EPS = 1e-12;
+
+interface Crossing {
+  overSegment: number;
+  overAt: number;
+  underSegment: number;
+  underAt: number;
+}
+
+// Where segment a-b meets segment c-d in the view, as fractions along each, or
+// null. Parallel or degenerate segments never meet.
+function meet(a: Vec3, b: Vec3, c: Vec3, d: Vec3): { s: number; u: number } | null {
+  const rx = b.x - a.x;
+  const ry = b.y - a.y;
+  const wx = d.x - c.x;
+  const wy = d.y - c.y;
+  const denom = rx * wy - ry * wx;
+  if (Math.abs(denom) < EPS) return null;
+  const qx = c.x - a.x;
+  const qy = c.y - a.y;
+  const s = (qx * wy - qy * wx) / denom;
+  const u = (qx * ry - qy * rx) / denom;
+  if (s < 0 || s >= 1 || u < 0 || u >= 1) return null;
+  return { s, u };
+}
+
+// Every crossing of the closed loop in the view, with its over strand decided.
+function crossingsOf(loop: readonly Vec3[]): Crossing[] {
+  const n = loop.length;
+  const found: Crossing[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // these two segments share a vertex
+      const a = loop[i];
+      const b = loop[(i + 1) % n];
+      const c = loop[j];
+      const d = loop[(j + 1) % n];
+      const hit = meet(a, b, c, d);
+      if (!hit) continue;
+      const depthI = a.z + hit.s * (b.z - a.z);
+      const depthJ = c.z + hit.u * (d.z - c.z);
+      if (depthI > depthJ) {
+        found.push({ overSegment: i, overAt: hit.s, underSegment: j, underAt: hit.u });
+      } else {
+        found.push({ overSegment: j, overAt: hit.u, underSegment: i, underAt: hit.s });
+      }
+    }
+  }
+  return found;
+}
+
+// One row per crossing, one column per arc. Each row sums to zero.
+export function foxMatrix(loop: readonly Vec3[]): number[][] {
+  const found = crossingsOf(loop);
+  const k = found.length;
+  const underPositions = found.map((c) => c.underSegment + c.underAt);
+  const order = found.map((_, index) => index).sort((p, q) => underPositions[p] - underPositions[q]);
+  const rank = new Array<number>(k);
+  order.forEach((crossing, position) => {
+    rank[crossing] = position;
+  });
+  const sortedUnder = order.map((crossing) => underPositions[crossing]);
+
+  // The arc that holds a position along the loop: the last under-passage at or
+  // before it starts that arc. Before the first passage, the arc wraps round.
+  const arcAt = (position: number): number => {
+    const passed = sortedUnder.filter((p) => p <= position).length;
+    return (passed - 1 + k) % k;
+  };
+
+  const matrix = found.map(() => new Array<number>(k).fill(0));
+  found.forEach((crossing, index) => {
+    const j = rank[index];
+    const row = matrix[index];
+    row[(j - 1 + k) % k] -= 1;
+    row[j] -= 1;
+    row[arcAt(crossing.overSegment + crossing.overAt)] += 2;
+  });
+  return matrix;
+}
+@}
+
+\section{Determinant}
+
+The determinant of a knot is the absolute value of any one minor of the Fox
+matrix, the matrix with one row and one column removed. The integer determinant
+is computed exactly with the Bareiss method, which divides only where the result
+is known to be whole. A rope with no crossings has the empty matrix, whose
+determinant is one, which is the unknot's value.
+
+@d Topology: determinant @{
+// Exact integer determinant by the Bareiss method. The empty matrix has determinant one.
+export function bareiss(input: readonly (readonly number[])[]): number {
+  const m = input.map((row) => [...row]);
+  const n = m.length;
+  let sign = 1;
+  let previous = 1;
+  for (let k = 0; k < n - 1; k++) {
+    if (m[k][k] === 0) {
+      const swap = m.findIndex((row, i) => i > k && row[k] !== 0);
+      if (swap === -1) return 0;
+      [m[k], m[swap]] = [m[swap], m[k]];
+      sign = -sign;
+    }
+    for (let i = k + 1; i < n; i++) {
+      for (let j = k + 1; j < n; j++) {
+        m[i][j] = (m[i][j] * m[k][k] - m[i][k] * m[k][j]) / previous;
+      }
+    }
+    previous = m[k][k];
+  }
+  return n === 0 ? 1 : sign * m[n - 1][n - 1];
+}
+
+// The knot determinant: the absolute value of the Fox matrix with its last row and column removed.
+export function knotDeterminant(matrix: readonly (readonly number[])[]): number {
+  const k = matrix.length;
+  const minor = matrix.slice(0, k - 1).map((row) => row.slice(0, k - 1));
+  return Math.abs(bareiss(minor));
+}
+@}
+
+\section{Recogniser}
+
+The recogniser closes the rope, builds the Fox matrix, takes the determinant, and
+looks the value up in the library. The library has two entries in stage one. A
+determinant that matches no entry gives no name, which is the honest answer
+until the library grows. It does not guess.
+
+The recogniser reads a snapshot and changes nothing. It is a pure function, so
+the page can call it whenever the rope has moved.
+
+@d Topology: recogniser @{
+import type { RopeSnapshot } from '../rope/snapshot';
+import { closeRope } from './closure';
+import { foxMatrix } from './crossings';
+import { knotDeterminant } from './determinant';
+
+export interface KnotEntry {
+  name: string;
+  determinant: number;
+}
+
+// Stage one knows two knots. Stage two adds the Alexander polynomial and the full library.
+export const LIBRARY: readonly KnotEntry[] = [
+  { name: 'unknot', determinant: 1 },
+  { name: 'trefoil', determinant: 3 },
+];
+
+export interface KnotResult {
+  name: string | null;
+  determinant: number;
+  crossings: number;
+}
+
+export function recognise(snapshot: RopeSnapshot): KnotResult {
+  const matrix = foxMatrix(closeRope(snapshot.points));
+  const determinant = knotDeterminant(matrix);
+  const entry = LIBRARY.find((known) => known.determinant === determinant);
+  return { name: entry?.name ?? null, determinant, crossings: matrix.length };
+}
+@}
+
+\section{Tests}
+
+The tests check the algorithm on shapes whose answers are known. A straight
+rope and a rope with one curl are unknots. The standard trefoil curve is a
+trefoil, and so is its mirror image, because the determinant cannot tell a knot
+from its mirror. The Fox matrix of a two-by-two case gives a determinant of
+three, which checks the exact arithmetic itself.
+
+@d Topology: tests @{
+import { describe, expect, it } from 'vitest';
+import type { Vec3 } from '../rope/snapshot';
+import { bareiss } from './determinant';
+import { recognise } from './recogniser';
+
+const SAMPLES = 120;
+
+// Sample a closed curve at evenly spaced parameter values.
+function sample(curve: (t: number) => Vec3): Vec3[] {
+  return Array.from({ length: SAMPLES }, (_, i) => curve((2 * Math.PI * i) / SAMPLES));
+}
+
+const trefoil = (t: number): Vec3 => ({
+  x: Math.sin(t) + 2 * Math.sin(2 * t),
+  y: Math.cos(t) - 2 * Math.cos(2 * t),
+  z: -Math.sin(3 * t),
+});
+
+const mirroredTrefoil = (t: number): Vec3 => ({ ...trefoil(t), z: -trefoil(t).z });
+
+// A limacon, which crosses itself once in the view. Its depth makes one strand pass over the other.
+const curl = (t: number): Vec3 => {
+  const r = 0.5 + Math.cos(t);
+  return { x: r * Math.cos(t), y: r * Math.sin(t), z: 0.2 * Math.sin(t) };
+};
+
+describe('determinant', () => {
+  it('computes exact determinants of small integer matrices', () => {
+    expect(bareiss([[2, -1], [-1, 2]])).toBe(3);
+    expect(bareiss([[1, 0, 0], [0, 1, 0], [0, 0, 1]])).toBe(1);
+    expect(bareiss([[0, 1], [1, 0]])).toBe(-1);
+    expect(bareiss([])).toBe(1);
+  });
+});
+
+describe('recogniser', () => {
+  it('names a straight rope as the unknot', () => {
+    const points = Array.from({ length: 40 }, (_, i) => ({ x: i * 0.05, y: 0, z: 0 }));
+    const result = recognise({ points, radius: 0.02 });
+    expect(result.name).toBe('unknot');
+    expect(result.crossings).toBe(0);
+  });
+
+  it('names a rope with one curl as the unknot', () => {
+    const result = recognise({ points: sample(curl), radius: 0.02 });
+    expect(result.name).toBe('unknot');
+    expect(result.determinant).toBe(1);
+  });
+
+  it('names the trefoil curve as the trefoil', () => {
+    const result = recognise({ points: sample(trefoil), radius: 0.02 });
+    expect(result.name).toBe('trefoil');
+    expect(result.determinant).toBe(3);
+    expect(result.crossings).toBe(3);
+  });
+
+  it('names the mirror image of the trefoil as the trefoil', () => {
+    const result = recognise({ points: sample(mirroredTrefoil), radius: 0.02 });
+    expect(result.name).toBe('trefoil');
+  });
+});
+@}

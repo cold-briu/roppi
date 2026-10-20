@@ -1,0 +1,97 @@
+\chapter{Assembly}
+
+This is the only file that will carry \texttt{@@o} directives. The concept
+chapters never name an output path. They define chunks, and this file routes
+those chunks to the files the build expects, so the layout can change without
+touching a single narrative.
+
+Stage one routes the scaffold, the rope model, the topology, the renderer, and
+the page. Each route below names one file and the chunk that fills it.
+
+\section{Tooling and page}
+
+@o app/package.json @{
+@<package manifest@>
+@}
+
+@o app/vite.config.ts @{
+@<Vite configuration@>
+@}
+
+@o app/tsconfig.json @{
+@<TypeScript configuration@>
+@}
+
+@o app/index.html @{
+@<HTML shell@>
+@}
+
+@o app/src/index.css @{
+@<Global styles@>
+@}
+
+@o app/src/main.tsx @{
+@<Entry point@>
+@}
+
+@o app/src/App.tsx @{
+@<UI: application@>
+@}
+
+@o app/src/ui/RopeStage.tsx @{
+@<UI: rope stage@>
+@}
+
+@o app/src/lessons/record.ts @{
+@<Lessons: record and stub@>
+@}
+
+@o app/src/anchors/bar.ts @{
+@<Anchors: bar@>
+@}
+
+\section{Rope model}
+
+@o app/src/rope/snapshot.ts @{
+@<Rope: snapshot types@>
+@}
+
+@o app/src/rope/rope.ts @{
+@<Rope: physics model@>
+@}
+
+@o app/src/rope/rope.test.ts @{
+@<Rope: tests@>
+@}
+
+\section{Topology}
+
+@o app/src/topology/closure.ts @{
+@<Topology: closure@>
+@}
+
+@o app/src/topology/crossings.ts @{
+@<Topology: crossings and Fox matrix@>
+@}
+
+@o app/src/topology/determinant.ts @{
+@<Topology: determinant@>
+@}
+
+@o app/src/topology/recogniser.ts @{
+@<Topology: recogniser@>
+@}
+
+@o app/src/topology/topology.test.ts @{
+@<Topology: tests@>
+@}
+
+\section{Renderer}
+
+@o app/src/render/ropeTube.ts @{
+@<Renderer: rope tube@>
+@}
+
+@o app/src/render/ropeTube.test.ts @{
+@<Renderer: tube tests@>
+@}

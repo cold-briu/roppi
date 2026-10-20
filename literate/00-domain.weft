@@ -1,0 +1,61 @@
+\chapter{The domain: a game of ropes for climbing knots}
+
+Roppi is a browser game for learning the knots of sports climbing. A player
+sees a rope drawn in three dimensions, grabs it with the mouse, and moves it.
+The shapes the rope takes are the knots the player is learning to recognise
+and tie. The player is a complete beginner.
+
+\section{Purpose}
+
+Roppi teaches climbing knots through hands-on manipulation, not memorised
+diagrams. A knot is a shape the rope holds, and the shape changes only when
+the rope is moved. Each knot is connected to its job in the climbing process:
+why it is tied at that point, and what a mistake looks like.
+
+\section{The problem}
+
+Climbing knots are usually learned from diagrams and from an instructor's
+hands. A diagram shows one picture of a knot and says nothing about how it is
+built up or how it can go wrong. A beginner needs to see the rope move through
+the crossings that make the knot, and to be told when the knot they have
+built is the one they meant to build. Roppi makes the crossings visible and
+checks the result.
+
+``Solved'' means that a beginner can build each lesson's knot from nothing,
+and the game names the knot the rope actually forms.
+
+\section{Scope}
+
+In scope:
+
+\begin{itemize}
+\item A rope rendered in 3D in the browser, moved with the mouse. Touch is not
+required in the first version.
+\item A rope model with minimal tension, so the rope feels responsive. It keeps
+the rope from passing through itself or through an anchor.
+\item Recognising a named knot by its topology: two shapes are the same knot
+when one can be dragged into the other without passing through the rope.
+\item Three teaching modes: guided, sandbox, and quiz.
+\item The knots of sports climbing as a process. The priority areas are
+rappel, anchoring, belaying and cleaning. Prusik and other friction hitches
+are included for their shape only.
+\end{itemize}
+
+Deliberately out of scope:
+
+\begin{itemize}
+\item Load, holding and slipping behaviour. A knot that would hold or fail
+under force is not simulated.
+\item Engineering-accurate rope physics: strength, friction and wear.
+\item Cutting, splicing and rope joins that change the rope's topology.
+\item Fishing, sailing and other uses that are not climbing.
+\item Multiplayer, accounts and online play.
+\item Certification. Roppi is a proof of concept and a reference. Knots are
+for learning the shape, and a learner must practise them with a qualified
+expert. The product says so.
+\end{itemize}
+
+\section{Who it is for}
+
+A complete beginner who wants to learn climbing knots before going on a wall,
+and who will practise them with an expert.

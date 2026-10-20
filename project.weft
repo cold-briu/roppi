@@ -1,0 +1,42 @@
+% ======================================================================
+%  Roppi — a game of ropes for learning sports-climbing knots.
+%  This master is LaTeX (limbo) plus include directives. It weaves the whole
+%  book and tangles nothing itself.  Weave:  weft -w md project.weft
+% ======================================================================
+\documentclass[11pt,a4paper]{report}
+
+\usepackage{booktabs}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize, breaklines=true, columns=fullflexible,
+        frame=single, framesep=3pt, xleftmargin=2pt}
+\usepackage{color}
+\definecolor{linkcolor}{rgb}{0,0,0.5}
+\usepackage[colorlinks,linkcolor=linkcolor,urlcolor=linkcolor,
+            citecolor=linkcolor,breaklinks]{hyperref}
+
+\title{\bfseries Roppi\\[4pt]
+       \large A game of ropes for learning sports-climbing knots}
+\author{Built with weft, under Literate Driven Development}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+% ---- Phase 1 and 2: the design chapters (prose only, tangle nothing) --
+@i literate/00-domain.weft
+@i literate/01-domain-analysis.weft
+@i literate/02-architecture.weft
+@i literate/03-stages.weft
+
+% ---- Stage one: the scaffold and the concept chapters ----------------
+@i literate/04-scaffold.weft
+@i literate/05-rope-model.weft
+@i literate/06-topology.weft
+@i literate/07-renderer.weft
+@i literate/08-lessons-and-ui.weft
+
+% ---- Appendix: the assembly (the only file with output directives) ---
+@i literate/assembly.weft
+
+\end{document}

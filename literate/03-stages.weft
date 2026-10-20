@@ -1,0 +1,96 @@
+\chapter{Development stages}
+
+Each stage is an edition of the project. At its boundary everything builds, the
+tests pass, and the stage's ``proven when'' fact holds. No stage begins before
+the previous one is proven.
+
+\section{Stage 1 --- the walking skeleton}
+
+The thinnest slice that runs. It touches every stage-one concept, however
+thinly. The concepts are the rope model, one anchor (a bar), the closure, the
+topology (the determinant only), a two-entry recogniser (unknot and trefoil),
+the renderer, a React page with Tailwind and one lesson stub, and one lesson
+record. Tooling is Vite, Vitest and the pinned libraries.
+
+\paragraph{Decision gate.} Before the rest of stage one is built, the rigid
+chain is measured for stability, for no-pass behaviour, and for frame cost. The
+gate passed on 2026-10-19 with the rigid chain and a link speed cap. The soft-body
+rope was measured and not used. The measurements and settings are recorded in
+the rope decision of the architecture chapter.
+
+\paragraph{Proven when} the page runs; a rope can be dragged with the mouse and
+draws continuously; and a test that drives the rope into a trefoil returns
+\texttt{trefoil}, while a test of the unknot returns \texttt{unknot}.
+
+\paragraph{Status.} Built and tested. The page builds and runs in a headless
+browser, and the rope can be dragged. The trefoil test feeds the recogniser a
+scripted curve, not a rope tied by dragging. A check on a rope tied by hand is
+still open, and it belongs with the stage's last check.
+
+\section{Stage 2 --- the recogniser}
+
+Adds the Alexander polynomial, the full library for the lessons, anchors of
+every type, and the build-time collision check.
+
+\paragraph{Proven when} every library entry is recognised from a scripted rope
+of that knot; every pair in the library is separated by the two invariants; and
+a clove hitch on a bar is recognised as a link with the bar.
+
+\section{Stage 3 --- guided mode for one knot}
+
+Guided mode for overhand on a bight, with steps. The UI waits for the
+recogniser to confirm each step.
+
+\paragraph{Proven when} a guided lesson runs from its first step to the
+recognised knot, driven by the recogniser and not by a timer.
+
+\section{Stage 4 --- sandbox}
+
+Free play. The recogniser names any library knot and says nothing otherwise.
+
+\paragraph{Proven when} a rope tied into each library knot is named in sandbox
+mode, and an unknown configuration is left unnamed.
+
+\section{Stage 5 --- quiz mode}
+
+The instruction is shown, the player ties the knot, and asks for an evaluation.
+
+\paragraph{Proven when} a correct tie is marked correct; a wrong knot is marked
+wrong and named as the knot the player actually tied; and an untied rope is not
+evaluated.
+
+\section{Stage 6 --- the knot catalogue}
+
+Adds the lessons from the research, in teaching order. Anchoring: figure-eight
+on a bight, clove hitch, girth hitch. Belaying: munter hitch, mule overhand.
+Rappel: the stoppers and the rope joins, as decided in the analysis. Cleaning:
+the rappel stoppers and backups, with no separate knot. Other: prusik and the
+friction hitches, shape only.
+
+\paragraph{Proven when} each lesson has a scripted reference rope that the
+recogniser names, and each lesson cites its web sources.
+
+\section{State of the work}
+
+Lifecycle: planned, drafted, implemented, stable.
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+Concept & Status & Stage & Chapter \\
+\midrule
+Rope model & implemented & 1 & Rope model \\
+Anchors & implemented & 1 (bar), 2 (all) & Lessons and the page \\
+Closure & implemented & 1 & Topology \\
+Topology & implemented & 1 (determinant), 2 (Alexander) & Topology \\
+Recogniser & implemented & 1 (two entries), 2 (library) & Topology \\
+Renderer & implemented & 1 & Renderer \\
+UI shell & implemented & 1 & Lessons and the page \\
+Lesson record & implemented & 1 & Lessons and the page \\
+Guided mode & planned & 3 & --- \\
+Sandbox mode & planned & 4 & --- \\
+Quiz mode & planned & 5 & --- \\
+Knot catalogue & planned & 6 & --- \\
+\bottomrule
+\end{tabular}
+\end{center}

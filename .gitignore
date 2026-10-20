@@ -1,0 +1,13 @@
+# weave scratch and outputs (regenerable from project.weft)
+*.aux
+*.log
+*.toc
+*.out
+nw??????
+texput.log
+project.tex
+project.md
+project.html
+# build output
+node_modules/
+dist/

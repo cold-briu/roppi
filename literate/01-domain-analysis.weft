@@ -1,0 +1,90 @@
+\chapter{Domain analysis}
+
+\section{Concepts}
+
+Many climbing knots are tied \emph{around} an anchor object or \emph{join}
+two ropes. A rope alone cannot express them, so the domain has these
+concepts.
+
+\begin{description}
+\item[Rope] A flexible curve of finite thickness, with two ends. It is the
+thing the player moves.
+\item[Anchor object] A fixed object the rope can be tied around: a bar, a
+carabiner, a ring, or a tree. All anchor types are in the first version. Without
+it the topology of a hitch is incomplete.
+\item[Second rope] A second rope, for bends that join two ropes.
+\item[Stopper end] The free end of a rope in a rappel setup. A stopper keeps the
+rope from running through the device.
+\item[Knot] One or more ropes together with their anchor objects, in a
+configuration the game recognises. A rope and its anchors count as one knot.
+\item[Stage] A point in the climbing process: anchoring, belaying, rappel,
+cleaning, tie-in, or rescue. Each knot belongs to one or more stages.
+\item[Lesson] A teaching unit: one knot, its stage, its guided steps, and its
+quiz.
+\end{description}
+
+\section{Invariants}
+
+An invariant is a law that, if broken, means the game is no longer about
+climbing knots.
+
+\begin{enumerate}
+\item A rope cannot pass through itself or through an anchor object. A knot
+changes only when the rope is moved through a crossing or around an object.
+\item A knot is identified by its topology, with its anchor objects included.
+Two configurations are the same knot when one can be dragged into the other
+without passing through the rope or an anchor. The same rope around a bar and
+around a carabiner can be different knots.
+\item A bend joins two rope ends. Its ends must be the ends of the two ropes,
+not points in the middle. Mixing a bend and a hitch is an error.
+\item A stopper knot is valid only at a free rope end. A middle overhand is not
+a stopper.
+\item The rope keeps its length. Moving one part pulls the rest along.
+\item A knot stays tied while nothing moves it. Only the player's input and the
+minimal tension change the shape.
+\item Friction hitches are recognised by shape only. The game does not model
+how they grip under load.
+\end{enumerate}
+
+\section{Closure of open ends}
+
+A rope has two free ends, but a topological knot is a closed curve. For
+recognition, each free end is extended straight back, away from the viewer,
+to a point behind the scene, and the two extensions are joined there. The
+join is never drawn. Because it lies behind everything, any crossing it makes
+with the rope passes under the rope. The rope therefore looks open on screen
+and is closed for recognition.
+
+\section{Decided knot choices}
+
+Rappel stoppers: all options are taught. These are the double overhand, the
+triple overhand (barrel), and the overhand on a bight.
+
+Joining two ropes for rappel: all options are taught. These are the double
+overhand and the flat overhand.
+
+Figure-eight on a bight stopper: optional. The lesson notes that a stopper can
+be added, and does not require it.
+
+\section{Vocabulary}
+
+The book uses these terms, and every chunk name starts with them.
+
+\begin{description}
+\item[Strand] A stretch of rope between two grab points, or between a grab point
+and an end.
+\item[Working end] The free end the player is tying with.
+\item[Standing part] The part of the rope that is not being worked.
+\item[Bight] A U-shaped loop of rope.
+\item[Turn or wrap] One full pass of rope around an anchor object or another
+part of the rope.
+\item[Hitch] A knot that ties around an object.
+\item[Bend] A knot that joins two ropes, or two ends of one rope.
+\item[Loop] A knot that forms a closed loop in the rope.
+\item[Friction hitch] A hitch that grips a rope under load and slides when
+unloaded.
+\item[Stopper] A knot at a rope end that keeps the rope from running through a
+device.
+\item[Closure] The way an open rope is closed for topology.
+\item[Tension] A small pull that keeps the rope settled and responsive.
+\end{description}

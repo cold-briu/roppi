@@ -1,0 +1,175 @@
+\chapter{Architecture}
+
+The system has these parts. Each one becomes a concept chapter later.
+
+\begin{quote}
+\texttt{React UI (Tailwind)} \,---\, lessons, modes, panels, quiz feedback. It
+updates on discrete events only, never on each frame.
+
+\texttt{Rope model (Rapier)} \,---\, rigid links joined by joints.
+
+\texttt{Renderer (three.js)} \,---\, one continuous tube, anchors and the frame.
+It is owned by one component.
+
+\texttt{Snapshot} \,---\, a read-only copy of positions, passed to the topology.
+
+\texttt{Topology} \,---\, closes the rope, projects it, builds a crossing code,
+and computes invariants.
+
+\texttt{Recogniser} \,---\, matches the invariants against the knot library.
+
+\texttt{Lessons} \,---\, data records that the three modes read.
+\end{quote}
+
+\section{Decision: rendering in three.js}
+
+We use three.js. The brief asks for it, and it runs in a browser with no
+install. The alternatives are a game engine such as Unity or Godot, which is
+heavier and not browser-first, and a 2D canvas, which cannot show the depth
+that the topology needs.
+
+\section{Decision: the rope is a Rapier chain, drawn as one tube}
+
+The rope is a chain of short rigid links joined neighbour to neighbour, using
+Rapier. The engine version is pinned at scaffold time.
+
+The length of the rope is kept by a rope joint. This is a maximum-distance
+constraint, so it allows a little slack. Minimal tension is a weak pull toward
+a straight line.
+
+The rope cannot pass through itself or through an anchor, because Rapier's
+contacts keep the links apart. Continuous collision detection is switched on
+for the links, so that a fast drag does not pass a link through another.
+
+Each joint is created with contacts between its two links disabled, so
+neighbouring links never push on each other. Collision groups keep the links
+from touching other links where they should not.
+
+The grab point is a kinematic body moved by the mouse. A kinematic body is not
+pushed by contacts, so the rope never blocks the player's hand.
+
+Each frame, the link centres are smoothed with a Catmull-Rom curve. The tube's
+vertices are rewritten into a buffer that is allocated once. The rope
+therefore never looks like a set of links.
+
+The alternatives considered were these. A custom position-based solver would
+need segment-to-segment collision written from scratch, which is the hardest
+part of the rope; Rapier already provides it, and its types confirm the joints
+and collision controls used here. A Rapier soft-body rope, built with
+\texttt{SoftBodyDesc.rope}, has self-contact options; it is the fallback if the
+chain proves unstable in stage one. Lines built with \texttt{Line2} or
+\texttt{MeshLine} are thin, and forum reports describe memory growth when they
+are updated each frame. Rebuilding \texttt{TubeGeometry} each frame costs an
+allocation each time.
+
+\paragraph{Gate result.} The spike measured the chain before the rest of stage
+one was built. With no limit, the tail of a forty-link rope dragged at 1.5 m/s
+reached 8 to 15 m/s, and the soft-body rope did the same. Both were rejected as
+unstable. The chain is kept with three settings: 32 solver iterations, linear
+damping of 0.5, and a link speed cap of 3 m/s applied after each physics step.
+With these, the stretch stays within 1.03 of the rope length, the figure-eight
+produces no overlap between links, no link enters the post, and a forty-link
+step costs about 0.7 ms. The cap is a deliberate departure from pure physics:
+at a hand speed of 1.5 m/s the tail sits at the cap, so the rope moves more
+slowly than the physics alone would move it. The soft-body rope is not used.
+
+Rendering runs on demand. The frame loop runs while the rope moves and stops
+when it settles, as the three.js manual advises for scenes that change only on
+input.
+
+\section{Decision: closure is a point behind the background}
+
+For recognition only, the closure described in the analysis is used. The join
+lies behind everything, so the crossings it makes count as passing under the
+rope. This needs no special case in the topology code.
+
+\section{Decision: recognition by planar projection and invariants}
+
+The closed curve is projected onto the view plane. Each crossing and its
+over-or-under is read from depth, and the crossings are written as a Planar
+Diagram code. From that code two invariants are computed: the determinant,
+counted by Fox colouring, and the Alexander polynomial, from the Wirtinger
+presentation. A knot is matched against a library only when both invariants
+agree.
+
+The recogniser reads a snapshot of the link positions. It never changes the
+rope or the physics world. It runs off the frame loop, throttled, and can move
+to a Web Worker if profiling shows it blocks frames.
+
+The alternatives were these. Matching the pose against stored templates fails
+invariant 2, because the pose changes with every drag. The determinant alone
+cannot separate some knots.
+
+The invariants do not separate every pair of knots, and they cannot tell a
+mirror image from its original. The library is therefore checked for collisions
+at build time, and the taught set is checked before lesson content is written.
+
+\section{Decision: anchors are closed components}
+
+Each anchor is a closed loop in space. A carabiner, a bar, a ring and a tree
+trunk are all loops. Anchors are separate components, so a hitch around an
+anchor is a link between the rope and the anchor. The recogniser handles
+several components in the same way as one.
+
+Modelling an anchor as a fixed point cannot represent a rope wrapped around
+it. Modelling the anchor inside the rope merges two topologies, which is wrong.
+
+\section{Decision: lessons are data}
+
+Each knot is one data record. It holds the name, the stage, the web sources,
+the invariants, the guided steps and the quiz prompt. Guided, sandbox and quiz
+modes all read the same records. Quiz evaluation compares the recognised knot
+with the prompt. A hard-coded lesson would turn every change into a code
+change, and a remote content service is not needed for a proof of concept.
+
+\section{Decision: literate source with weft}
+
+The source of truth is these \texttt{.weft} chapters. The \texttt{weft} tool
+tangles them into \texttt{src/}. We built weft 2.0.2 from its repository and
+copied the binary to the user's local bin directory.
+
+\section{Decision: tooling}
+
+Vite is the dev server and build tool. React is the UI. Tailwind styles the UI
+only, never the 3D canvas. Vitest runs the tests. three.js and Rapier are
+pinned to exact versions.
+
+The 3D scene is owned by one component. That component creates the renderer,
+the scene and the physics world in an effect, and disposes of them on unmount.
+
+The research behind the rendering choices comes from the three.js manual,
+which is in the three.js source repository. Its advice is these. Merging
+geometry reduces draw calls. Geometries, materials and textures are not freed
+automatically, so \texttt{dispose()} must be called when they are no longer
+used. A continuously animated loop is wasteful for a scene that changes only on
+input.
+
+\section{Forbidden edges}
+
+These are rules that a change must not break. They are checked in review.
+
+\begin{enumerate}
+\item The rope model does not import three.js.
+\item The renderer never writes rope state.
+\item The recogniser reads a snapshot and never changes the rope, the physics
+world or the scene.
+\item Topology does not import React or three.js.
+\item React holds no per-frame state. Per-frame data is written to refs.
+\item Lesson records are data, with no code and no three.js or Rapier objects.
+\item Anchors are scene data. The rope model does not own anchor geometry.
+\item One component creates and disposes of the physics world and the renderer.
+No other code does.
+\item Tailwind does not style the canvas.
+\end{enumerate}
+
+\section{Named seams}
+
+These contracts are empty until stage one.
+
+\begin{description}
+\item[RopeSnapshot] The link centres, the radius and the two ends. Read-only.
+\item[AnchorSnapshot] A closed loop of points, one per anchor.
+\item[KnotResult] A name, or nothing if the knot is not recognised, together
+with its invariants.
+\item[LessonRecord] The data described above.
+\end{description}

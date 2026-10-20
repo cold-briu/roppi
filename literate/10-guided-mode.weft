@@ -1,0 +1,135 @@
+\chapter{Guided mode, stage three}
+
+Stage three teaches one knot step by step. The overhand knot is the first guided
+lesson. The page shows its steps in order, and a step is done only when the
+recogniser confirms it. A timer never advances a step, and a click never does.
+
+\section{What a step is}
+
+Each lesson step has the instruction the player reads, and a check. A check is a
+fact about the rope that the recogniser computes from a snapshot. The check is one
+of two kinds. A crossings check passes when the diagram has at least a given
+number of crossings. A knot check passes when the recogniser names the knot. The
+lesson is finished when every step passes.
+
+@d Lessons: guided steps @{
+// A check is a fact about the rope that the recogniser computes.
+export type StepCheck = { kind: 'crossings'; atLeast: number } | { kind: 'knot'; name: string };
+
+export interface LessonStep {
+  text: string;
+  check: StepCheck;
+}
+@}
+
+\section{The check for a step}
+
+The first step whose check fails is the current step. Steps are not remembered
+once passed. If the player undoes a crossing, the lesson goes back to the step
+that needs it. That is why the crossing checks are cumulative: a rope with three
+crossings passes the first two.
+
+A crossing count depends on how the rope is turned, because the diagram is read
+along the depth axis. The page does not correct for it. A player who turns the rope
+may see a crossing count change without changing the knot.
+
+@d Guided: step check @{
+import type { KnotResult } from '../topology/recogniser';
+import type { LessonStep, StepCheck } from './record';
+
+export function checkPasses(check: StepCheck, result: KnotResult | null): boolean {
+  if (!result) return false;
+  if (check.kind === 'crossings') return result.crossings >= check.atLeast;
+  return result.name === check.name;
+}
+
+// The index of the current step: the first whose check fails. Equal to steps.length when all pass.
+export function currentStep(steps: readonly LessonStep[], result: KnotResult | null): number {
+  const index = steps.findIndex((step) => !checkPasses(step.check, result));
+  return index === -1 ? steps.length : index;
+}
+@}
+
+\section{The panel}
+
+The panel lists the steps. Steps before the current one are marked done, the
+current one is highlighted, and the rest are muted. When every step passes the
+panel says the lesson is complete. The panel receives the recogniser's result from
+the page, and the page updates it only when the name or the crossings change.
+
+@d UI: guided panel @{
+import type { LessonStep } from '../lessons/record';
+import { currentStep } from '../lessons/guided';
+import type { KnotResult } from '../topology/recogniser';
+
+export function GuidedPanel({ steps, result }: { steps: readonly LessonStep[]; result: KnotResult | null }) {
+  const current = currentStep(steps, result);
+  return (
+    <div className="mt-2">
+      <ol className="list-decimal space-y-0.5 pl-5 text-sm">
+        {steps.map((step, index) => {
+          const tone =
+            index < current ? 'text-emerald-400' : index === current ? 'font-semibold text-slate-100' : 'text-slate-500';
+          return (
+            <li key={step.text} className={tone}>
+              {index < current ? '✓ ' : ''}
+              {step.text}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-1 text-sm text-slate-300">
+        {current === steps.length ? 'Lesson complete.' : `Step ${current + 1} of ${steps.length}.`}
+      </p>
+    </div>
+  );
+}
+@}
+
+\section{Tests}
+
+The tests drive the lesson with the recogniser's own results. A straight rope has
+no crossings, so no step passes. The scripted trefoil passes every step. A rope
+that loses a crossing goes back to the step that needs it.
+
+@d Guided: tests @{
+import { describe, expect, it } from 'vitest';
+import type { Vec3 } from '../rope/snapshot';
+import { recognise } from '../topology/recogniser';
+import { STAGE_ONE_LESSONS } from './record';
+import { currentStep } from './guided';
+
+const steps = STAGE_ONE_LESSONS[0].steps;
+
+const trefoil = (t: number): Vec3 => ({
+  x: Math.sin(t) + 2 * Math.sin(2 * t),
+  y: Math.cos(t) - 2 * Math.cos(2 * t),
+  z: -Math.sin(3 * t),
+});
+
+const sample = (curve: (t: number) => Vec3, n: number): Vec3[] =>
+  Array.from({ length: n }, (_, i) => curve((2 * Math.PI * i) / n));
+
+describe('guided overhand lesson', () => {
+  it('starts at the first step with no result', () => {
+    expect(currentStep(steps, null)).toBe(0);
+  });
+
+  it('does not advance for a straight rope', () => {
+    const straight = Array.from({ length: 40 }, (_, i) => ({ x: i * 0.05, y: 0, z: 0 }));
+    expect(currentStep(steps, recognise({ points: straight, radius: 0.02 }))).toBe(0);
+  });
+
+  it('is complete for the scripted trefoil', () => {
+    const tied = recognise({ points: sample(trefoil, 120), radius: 0.02 });
+    expect(currentStep(steps, tied)).toBe(steps.length);
+  });
+
+  it('goes back to the step that needs a crossing that is undone', () => {
+    const tied = recognise({ points: sample(trefoil, 120), radius: 0.02 });
+    expect(currentStep(steps, tied)).toBe(steps.length);
+    const undone = { ...tied, crossings: 1 };
+    expect(currentStep(steps, undone)).toBe(1);
+  });
+});
+@}

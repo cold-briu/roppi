@@ -102,6 +102,20 @@ the page. Each route below names one file and the chunk that fills it.
 
 \section{Renderer}
 
+\section{Guided mode}
+
+@o app/src/lessons/guided.ts @{
+@<Guided: step check@>
+@}
+
+@o app/src/lessons/guided.test.ts @{
+@<Guided: tests@>
+@}
+
+@o app/src/ui/GuidedPanel.tsx @{
+@<UI: guided panel@>
+@}
+
 @o app/src/render/ropeTube.ts @{
 @<Renderer: rope tube@>
 @}

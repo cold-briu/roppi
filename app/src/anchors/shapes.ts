@@ -1,4 +1,4 @@
-// {43: literate/assembly.weft:95}
+// {47: literate/assembly.weft:95}
 
 // Recogniser: anchors as components
 // {22: literate/09-recogniser-stage-two.weft:193}
@@ -44,4 +44,4 @@ export function carabiner(centre: Vec3, halfLength: number, radius: number): Vec
 }
 // {:22}
 
-// {:43}
+// {:47}

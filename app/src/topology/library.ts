@@ -1,4 +1,4 @@
-// {42: literate/assembly.weft:91}
+// {46: literate/assembly.weft:91}
 
 // Recogniser: taught library
 // {21: literate/09-recogniser-stage-two.weft:163}
@@ -24,4 +24,4 @@ export interface LinkEntry {
 export const LINKS: readonly LinkEntry[] = [{ name: 'hitch', determinant: 2 }];
 // {:21}
 
-// {:42}
+// {:46}

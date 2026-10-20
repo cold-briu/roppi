@@ -1,13 +1,21 @@
-// {30: literate/assembly.weft:37}
+// {34: literate/assembly.weft:37}
 
 // UI: application
-// {19: literate/08-lessons-and-ui.weft:395}
+// {19: literate/08-lessons-and-ui.weft:399}
 
+import { useCallback, useState } from 'react';
 import { STAGE_ONE_LESSONS } from './lessons/record';
+import type { KnotResult } from './topology/recogniser';
+import { GuidedPanel } from './ui/GuidedPanel';
 import { RopeStage } from './ui/RopeStage';
 
 export function App() {
   const lesson = STAGE_ONE_LESSONS[0];
+  const [result, setResult] = useState<KnotResult | null>(null);
+  // Recognition runs several times a second. Only a change of name or crossings re-renders the page.
+  const report = useCallback((next: KnotResult) => {
+    setResult((prev) => (prev && prev.name === next.name && prev.crossings === next.crossings ? prev : next));
+  }, []);
   return (
     <main className="flex h-full flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 px-4 py-3">
@@ -15,18 +23,14 @@ export function App() {
         <p className="text-sm text-slate-400">
           {lesson.name}. {lesson.prompt}
         </p>
-        <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-sm text-slate-300">
-          {lesson.steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
+        <GuidedPanel steps={lesson.steps} result={result} />
       </header>
       <section className="relative min-h-0 flex-1">
-        <RopeStage />
+        <RopeStage onRecognise={report} />
       </section>
     </main>
   );
 }
 // {:19}
 
-// {:30}
+// {:34}

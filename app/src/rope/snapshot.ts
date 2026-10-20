@@ -1,4 +1,4 @@
-// {34: literate/assembly.weft:55}
+// {38: literate/assembly.weft:55}
 
 // Rope: snapshot types
 // {7: literate/05-rope-model.weft:26}
@@ -22,4 +22,4 @@ export interface Box {
 }
 // {:7}
 
-// {:34}
+// {:38}

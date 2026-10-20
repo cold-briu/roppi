@@ -1,7 +1,20 @@
-// {32: literate/assembly.weft:45}
+// {36: literate/assembly.weft:45}
 
 // Lessons: record and stub
 // {16: literate/08-lessons-and-ui.weft:20}
+
+// Lessons: guided steps
+// {24: literate/10-guided-mode.weft:15}
+
+// A check is a fact about the rope that the recogniser computes.
+export type StepCheck = { kind: 'crossings'; atLeast: number } | { kind: 'knot'; name: string };
+
+export interface LessonStep {
+  text: string;
+  check: StepCheck;
+}
+// {:24}
+
 
 export interface Invariants {
   determinant: number;
@@ -14,7 +27,7 @@ export interface LessonRecord {
   sources: readonly string[];
   invariants: Invariants;
   prompt: string;
-  steps: readonly string[];
+  steps: readonly LessonStep[];
 }
 
 export const STAGE_ONE_LESSONS: readonly LessonRecord[] = [
@@ -24,17 +37,15 @@ export const STAGE_ONE_LESSONS: readonly LessonRecord[] = [
     stage: 1,
     sources: ['https://katlas.org/wiki/3_1'],
     invariants: { determinant: 3 },
-    prompt: 'Tie an overhand knot in the rope. The recogniser names it when it is tied.',
+    prompt: 'Tie an overhand knot in the rope. Drag a link to move it. Scroll to move it toward or away from you. Drag empty space to orbit.',
     steps: [
-      'Press the mouse on a part of the rope and hold the button. The rope follows the mouse while the button is down.',
-      'Scroll the wheel up to bring the held part closer to you, and down to push it farther away. The point stays under the mouse.',
-      'Move the held part to make a loop, so that one part of the rope crosses in front of another.',
-      'Grab one end and pass it over the rope, then under it.',
-      'Grab the same end and pass it through the loop you made, so it comes out on the side it started from.',
-      'Release the button and let the rope settle. The name appears at the bottom left. Gravity is off by default, so the rope floats; switch it on to let the rope fall.',
+      { text: 'Make a loop in the rope, so that one part crosses over another.', check: { kind: 'crossings', atLeast: 1 } },
+      { text: 'Take one end over the rope, then back under it.', check: { kind: 'crossings', atLeast: 2 } },
+      { text: 'Pass the same end through the loop you made.', check: { kind: 'crossings', atLeast: 3 } },
+      { text: 'Draw the ends apart slowly and let the rope settle. The name appears when the knot is tied.', check: { kind: 'knot', name: 'trefoil' } },
     ],
   },
 ];
 // {:16}
 
-// {:32}
+// {:36}

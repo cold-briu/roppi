@@ -1,4 +1,4 @@
-// {39: literate/assembly.weft:77}
+// {43: literate/assembly.weft:77}
 
 // Topology: recogniser
 // {12: literate/06-topology.weft:238}
@@ -44,4 +44,4 @@ export function recognise(snapshot: RopeSnapshot, anchors: readonly (readonly Ve
 }
 // {:12}
 
-// {:39}
+// {:43}

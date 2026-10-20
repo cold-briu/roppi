@@ -1,4 +1,4 @@
-// {38: literate/assembly.weft:73}
+// {42: literate/assembly.weft:73}
 
 // Topology: determinant
 // {11: literate/06-topology.weft:190}
@@ -40,4 +40,4 @@ export function linkDeterminant(diagram: Diagram): number {
 }
 // {:11}
 
-// {:38}
+// {:42}

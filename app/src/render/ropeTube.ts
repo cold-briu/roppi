@@ -1,4 +1,4 @@
-// {45: literate/assembly.weft:105}
+// {52: literate/assembly.weft:119}
 
 // Renderer: rope tube
 // {14: literate/07-renderer.weft:26}
@@ -93,4 +93,4 @@ export class RopeTube {
 }
 // {:14}
 
-// {:45}
+// {:52}

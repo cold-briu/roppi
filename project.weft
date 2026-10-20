@@ -37,6 +37,9 @@
 @i literate/08-lessons-and-ui.weft
 @i literate/09-recogniser-stage-two.weft
 
+% ---- Stage three: guided mode ----------------------------------------
+@i literate/10-guided-mode.weft
+
 % ---- Appendix: the assembly (the only file with output directives) ---
 @i literate/assembly.weft
 

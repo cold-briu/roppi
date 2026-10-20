@@ -1,4 +1,4 @@
-// {31: literate/assembly.weft:41}
+// {35: literate/assembly.weft:41}
 
 // UI: rope stage
 // {18: literate/08-lessons-and-ui.weft:104}
@@ -10,7 +10,7 @@ import { RopeTube } from '../render/ropeTube';
 import { BAR } from '../anchors/bar';
 import { LINK_COUNT, LINK_RADIUS, createRope, initPhysics, type Rope } from '../rope/rope';
 import type { Box } from '../rope/snapshot';
-import { recognise } from '../topology/recogniser';
+import { recognise, type KnotResult } from '../topology/recogniser';
 
 const FLOOR: Box = { center: { x: 0, y: -1, z: 0 }, half: { x: 1.5, y: 0.05, z: 1.5 } };
 const ROPE_START = { x: -0.975, y: 0.2, z: 0 };
@@ -22,8 +22,10 @@ const NEAR = 0.3;
 const FAR = 6;
 const PICK_RADIUS = 36;
 
-export function RopeStage() {
+export function RopeStage({ onRecognise }: { onRecognise: (result: KnotResult) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const report = useRef(onRecognise);
+  report.current = onRecognise;
   const gravityRef = useRef(false);
   const controls = useRef<{ setGravity(on: boolean): void } | null>(null);
   const view = useRef<{ reset(): void } | null>(null);
@@ -132,7 +134,9 @@ export function RopeStage() {
         const now = performance.now();
         if (still === SETTLE_FRAMES || (still === 0 && now - lastRecognised > RECOGNISE_EVERY_MS)) {
           lastRecognised = now;
-          setName(recognise(snapshot).name);
+          const result = recognise(snapshot);
+          setName(result.name);
+          report.current(result);
         }
         if (still < SETTLE_FRAMES) {
           frame = requestAnimationFrame(animate);
@@ -286,4 +290,4 @@ export function RopeStage() {
 }
 // {:18}
 
-// {:31}
+// {:35}

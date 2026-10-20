@@ -18,6 +18,8 @@ computes. The steps are written for this page and are not from a cited tying
 guide, so stage six must replace them with cited ones.
 
 @d Lessons: record and stub @{
+@<Lessons: guided steps@>
+
 export interface Invariants {
   determinant: number;
 }
@@ -29,7 +31,7 @@ export interface LessonRecord {
   sources: readonly string[];
   invariants: Invariants;
   prompt: string;
-  steps: readonly string[];
+  steps: readonly LessonStep[];
 }
 
 export const STAGE_ONE_LESSONS: readonly LessonRecord[] = [
@@ -39,14 +41,12 @@ export const STAGE_ONE_LESSONS: readonly LessonRecord[] = [
     stage: 1,
     sources: ['https://katlas.org/wiki/3_1'],
     invariants: { determinant: 3 },
-    prompt: 'Tie an overhand knot in the rope. The recogniser names it when it is tied.',
+    prompt: 'Tie an overhand knot in the rope. Drag a link to move it. Scroll to move it toward or away from you. Drag empty space to orbit.',
     steps: [
-      'Press the mouse on a part of the rope and hold the button. The rope follows the mouse while the button is down.',
-      'Scroll the wheel up to bring the held part closer to you, and down to push it farther away. The point stays under the mouse.',
-      'Move the held part to make a loop, so that one part of the rope crosses in front of another.',
-      'Grab one end and pass it over the rope, then under it.',
-      'Grab the same end and pass it through the loop you made, so it comes out on the side it started from.',
-      'Release the button and let the rope settle. The name appears at the bottom left. Gravity is off by default, so the rope floats; switch it on to let the rope fall.',
+      { text: 'Make a loop in the rope, so that one part crosses over another.', check: { kind: 'crossings', atLeast: 1 } },
+      { text: 'Take one end over the rope, then back under it.', check: { kind: 'crossings', atLeast: 2 } },
+      { text: 'Pass the same end through the loop you made.', check: { kind: 'crossings', atLeast: 3 } },
+      { text: 'Draw the ends apart slowly and let the rope settle. The name appears when the knot is tied.', check: { kind: 'knot', name: 'trefoil' } },
     ],
   },
 ];
@@ -109,7 +109,7 @@ import { RopeTube } from '../render/ropeTube';
 import { BAR } from '../anchors/bar';
 import { LINK_COUNT, LINK_RADIUS, createRope, initPhysics, type Rope } from '../rope/rope';
 import type { Box } from '../rope/snapshot';
-import { recognise } from '../topology/recogniser';
+import { recognise, type KnotResult } from '../topology/recogniser';
 
 const FLOOR: Box = { center: { x: 0, y: -1, z: 0 }, half: { x: 1.5, y: 0.05, z: 1.5 } };
 const ROPE_START = { x: -0.975, y: 0.2, z: 0 };
@@ -121,8 +121,10 @@ const NEAR = 0.3;
 const FAR = 6;
 const PICK_RADIUS = 36;
 
-export function RopeStage() {
+export function RopeStage({ onRecognise }: { onRecognise: (result: KnotResult) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const report = useRef(onRecognise);
+  report.current = onRecognise;
   const gravityRef = useRef(false);
   const controls = useRef<{ setGravity(on: boolean): void } | null>(null);
   const view = useRef<{ reset(): void } | null>(null);
@@ -231,7 +233,9 @@ export function RopeStage() {
         const now = performance.now();
         if (still === SETTLE_FRAMES || (still === 0 && now - lastRecognised > RECOGNISE_EVERY_MS)) {
           lastRecognised = now;
-          setName(recognise(snapshot).name);
+          const result = recognise(snapshot);
+          setName(result.name);
+          report.current(result);
         }
         if (still < SETTLE_FRAMES) {
           frame = requestAnimationFrame(animate);
@@ -393,11 +397,19 @@ follows, so a lesson cannot be used without them. The stage is the only part wit
 per-frame work.
 
 @d UI: application @{
+import { useCallback, useState } from 'react';
 import { STAGE_ONE_LESSONS } from './lessons/record';
+import type { KnotResult } from './topology/recogniser';
+import { GuidedPanel } from './ui/GuidedPanel';
 import { RopeStage } from './ui/RopeStage';
 
 export function App() {
   const lesson = STAGE_ONE_LESSONS[0];
+  const [result, setResult] = useState<KnotResult | null>(null);
+  // Recognition runs several times a second. Only a change of name or crossings re-renders the page.
+  const report = useCallback((next: KnotResult) => {
+    setResult((prev) => (prev && prev.name === next.name && prev.crossings === next.crossings ? prev : next));
+  }, []);
   return (
     <main className="flex h-full flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 px-4 py-3">
@@ -405,14 +417,10 @@ export function App() {
         <p className="text-sm text-slate-400">
           {lesson.name}. {lesson.prompt}
         </p>
-        <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-sm text-slate-300">
-          {lesson.steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
+        <GuidedPanel steps={lesson.steps} result={result} />
       </header>
       <section className="relative min-h-0 flex-1">
-        <RopeStage />
+        <RopeStage onRecognise={report} />
       </section>
     </main>
   );

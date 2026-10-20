@@ -1,4 +1,4 @@
-// {29: literate/assembly.weft:33}
+// {33: literate/assembly.weft:33}
 
 // Entry point
 // {6: literate/04-scaffold.weft:122}
@@ -15,4 +15,4 @@ createRoot(document.getElementById('root')!).render(
 );
 // {:6}
 
-// {:29}
+// {:33}

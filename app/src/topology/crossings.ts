@@ -1,4 +1,4 @@
-// {37: literate/assembly.weft:69}
+// {41: literate/assembly.weft:69}
 
 // Topology: crossings and Fox matrix
 // {10: literate/06-topology.weft:36}
@@ -148,4 +148,4 @@ export function foxMatrix(diagram: Diagram): number[][] {
 }
 // {:10}
 
-// {:37}
+// {:41}

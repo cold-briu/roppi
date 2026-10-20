@@ -44,6 +44,10 @@ recogniser to confirm each step.
 \paragraph{Proven when} a guided lesson runs from its first step to the
 recognised knot, driven by the recogniser and not by a timer.
 
+\paragraph{Status.} Proven on 2026-10-19. A person followed the overhand lesson on
+the page, and all four steps were detected in the order the lesson gives. The
+scripted tests cover the same path without a person.
+
 \section{Stage 4 --- sandbox}
 
 Free play. The recogniser names any library knot and says nothing otherwise.
@@ -87,7 +91,7 @@ Recogniser & implemented & 1 (two entries), 2 (library) & Topology \\
 Renderer & implemented & 1 & Renderer \\
 UI shell & implemented & 1 & Lessons and the page \\
 Lesson record & implemented & 1 & Lessons and the page \\
-Guided mode & planned & 3 & --- \\
+Guided mode & stable & 3 & Guided mode, stage three \\
 Sandbox mode & planned & 4 & --- \\
 Quiz mode & planned & 5 & --- \\
 Knot catalogue & planned & 6 & --- \\

@@ -1,4 +1,4 @@
-// {36: literate/assembly.weft:63}
+// {40: literate/assembly.weft:63}
 
 // Rope: tests
 // {9: literate/05-rope-model.weft:233}
@@ -191,4 +191,4 @@ describe('rope model', () => {
 });
 // {:9}
 
-// {:36}
+// {:40}

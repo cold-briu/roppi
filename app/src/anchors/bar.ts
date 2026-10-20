@@ -1,4 +1,4 @@
-// {33: literate/assembly.weft:49}
+// {37: literate/assembly.weft:49}
 
 // Anchors: bar
 // {17: literate/08-lessons-and-ui.weft:63}
@@ -11,4 +11,4 @@ export const BAR: Box = {
 };
 // {:17}
 
-// {:33}
+// {:37}

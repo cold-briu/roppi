@@ -1,4 +1,4 @@
-// {41: literate/assembly.weft:87}
+// {45: literate/assembly.weft:87}
 
 // Recogniser: Alexander polynomial
 // {20: literate/09-recogniser-stage-two.weft:29}
@@ -121,4 +121,4 @@ export function samePolynomial(a: readonly number[], b: readonly number[]): bool
 }
 // {:20}
 
-// {:41}
+// {:45}

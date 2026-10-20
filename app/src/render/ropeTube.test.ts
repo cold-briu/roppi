@@ -1,4 +1,4 @@
-// {46: literate/assembly.weft:109}
+// {53: literate/assembly.weft:123}
 
 // Renderer: tube tests
 // {15: literate/07-renderer.weft:124}
@@ -38,4 +38,4 @@ describe('rope tube', () => {
 });
 // {:15}
 
-// {:46}
+// {:53}

@@ -1,4 +1,4 @@
-// {44: literate/assembly.weft:99}
+// {48: literate/assembly.weft:99}
 
 // Recogniser: stage two tests
 // {23: literate/09-recogniser-stage-two.weft:246}
@@ -76,4 +76,4 @@ describe('stage two recogniser', () => {
 });
 // {:23}
 
-// {:44}
+// {:48}

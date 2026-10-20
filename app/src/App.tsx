@@ -1,4 +1,4 @@
-// {26: literate/assembly.weft:37}
+// {30: literate/assembly.weft:37}
 
 // UI: application
 // {19: literate/08-lessons-and-ui.weft:395}
@@ -29,4 +29,4 @@ export function App() {
 }
 // {:19}
 
-// {:26}
+// {:30}

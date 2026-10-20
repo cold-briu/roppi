@@ -1,4 +1,4 @@
-// {21: literate/assembly.weft:17}
+// {25: literate/assembly.weft:17}
 
 // Vite configuration
 // {2: literate/04-scaffold.weft:58}
@@ -18,4 +18,4 @@ export default defineConfig({
 });
 // {:2}
 
-// {:21}
+// {:25}

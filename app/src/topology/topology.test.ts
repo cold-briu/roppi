@@ -1,7 +1,7 @@
-// {36: literate/assembly.weft:81}
+// {40: literate/assembly.weft:81}
 
 // Topology: tests
-// {13: literate/06-topology.weft:209}
+// {13: literate/06-topology.weft:288}
 
 import { describe, expect, it } from 'vitest';
 import type { Vec3 } from '../rope/snapshot';
@@ -92,4 +92,4 @@ describe('recogniser', () => {
 });
 // {:13}
 
-// {:36}
+// {:40}

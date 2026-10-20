@@ -1,7 +1,9 @@
-// {34: literate/assembly.weft:73}
+// {38: literate/assembly.weft:73}
 
 // Topology: determinant
-// {11: literate/06-topology.weft:129}
+// {11: literate/06-topology.weft:190}
+
+import { foxMatrix, type Diagram } from './crossings';
 
 // Exact integer determinant by the Bareiss method. The empty matrix has determinant one.
 export function bareiss(input: readonly (readonly number[])[]): number {
@@ -26,12 +28,16 @@ export function bareiss(input: readonly (readonly number[])[]): number {
   return n === 0 ? 1 : sign * m[n - 1][n - 1];
 }
 
-// The knot determinant: the absolute value of the Fox matrix with its last row and column removed.
-export function knotDeterminant(matrix: readonly (readonly number[])[]): number {
+// The determinant of a diagram of knots or links: the absolute value of the Fox matrix
+// with its last row and column removed. A link with a component that is never under
+// another is split, and its determinant is zero.
+export function linkDeterminant(diagram: Diagram): number {
+  if (diagram.components > 1 && diagram.underCount.some((u) => u === 0)) return 0;
+  const matrix = foxMatrix(diagram);
   const k = matrix.length;
   const minor = matrix.slice(0, k - 1).map((row) => row.slice(0, k - 1));
   return Math.abs(bareiss(minor));
 }
 // {:11}
 
-// {:34}
+// {:38}

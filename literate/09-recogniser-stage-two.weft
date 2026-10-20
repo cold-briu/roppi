@@ -1,0 +1,318 @@
+\chapter{Recogniser, stage two}
+
+Stage two widens the recogniser from two knots to the taught set, and from one rope
+to a rope tied to anchors. It adds the Alexander polynomial, which separates knots
+that share a determinant. It adds anchors as closed loops, so a rope hitched on an
+anchor is recognised as a link. And a test checks at build time that no two
+library entries share both invariants.
+
+The two open decisions were settled as recommended. A link is recognised by its
+determinant. Anchors are stored as closed polylines for recognition, and the
+physics shapes stay separate.
+
+\section{Alexander polynomial}
+
+The determinant alone cannot separate every taught knot. The Alexander polynomial
+is the second invariant. It comes from the same crossing data as the Fox matrix,
+through the Wirtinger relations. At a positive crossing with over arc $o$, incoming
+under arc $i$ and outgoing under arc $j$, the Alexander row has $1-t$ at $o$, $t$ at
+$i$ and $-1$ at $j$. A negative crossing gives $t-1$, $1$ and $-t$, which is the same
+relation multiplied by a unit. The determinant of the matrix with one row and one
+column removed is the polynomial, up to a unit $\pm t^k$.
+
+The polynomial is found by evaluating that determinant at $k$ integer points and
+interpolating. The determinant at each point is an exact integer, so the
+interpolation is exact. The result is normalised: its lowest power is zero, and its
+first coefficient is positive. Two knots match only when the determinant and the
+normalised polynomial both agree. Mirror images agree on both, so they still match.
+
+@d Recogniser: Alexander polynomial @{
+import type { Diagram } from './crossings';
+import { relationsOf } from './crossings';
+
+// A polynomial in t, lowest power first.
+type Poly = number[];
+
+function addPoly(a: Poly, b: Poly): Poly {
+  const n = Math.max(a.length, b.length);
+  return Array.from({ length: n }, (_, i) => (a[i] ?? 0) + (b[i] ?? 0));
+}
+
+// The Alexander matrix: one row per crossing, one column per arc, with polynomial entries.
+function alexanderMatrix(diagram: Diagram): Poly[][] {
+  const k = diagram.crossings.length;
+  const matrix: Poly[][] = Array.from({ length: k }, () => Array.from({ length: k }, (): Poly => []));
+  relationsOf(diagram).forEach((rel, row) => {
+    const entries: [number, Poly][] =
+      rel.sign === 1
+        ? [
+            [rel.overArc, [1, -1]],
+            [rel.inArc, [0, 1]],
+            [rel.outArc, [-1]],
+          ]
+        : [
+            [rel.overArc, [-1, 1]],
+            [rel.inArc, [1]],
+            [rel.outArc, [0, -1]],
+          ];
+    for (const [col, poly] of entries) matrix[row][col] = addPoly(matrix[row][col], poly);
+  });
+  return matrix;
+}
+
+function evalAt(p: Poly, x: bigint): bigint {
+  let v = 0n;
+  for (let i = p.length - 1; i >= 0; i--) v = v * x + BigInt(p[i]);
+  return v;
+}
+
+// Exact determinant of an integer matrix, by the Bareiss method.
+function bareissBig(input: bigint[][]): bigint {
+  const m = input.map((row) => [...row]);
+  const n = m.length;
+  let sign = 1n;
+  let previous = 1n;
+  for (let k = 0; k < n - 1; k++) {
+    if (m[k][k] === 0n) {
+      const swap = m.findIndex((row, i) => i > k && row[k] !== 0n);
+      if (swap === -1) return 0n;
+      [m[k], m[swap]] = [m[swap], m[k]];
+      sign = -sign;
+    }
+    for (let i = k + 1; i < n; i++) {
+      for (let j = k + 1; j < n; j++) {
+        m[i][j] = (m[i][j] * m[k][k] - m[i][k] * m[k][j]) / previous;
+      }
+    }
+    previous = m[k][k];
+  }
+  return n === 0 ? 1n : sign * m[n - 1][n - 1];
+}
+
+// Multiplies a polynomial by (t + c).
+function timesLinear(poly: bigint[], c: bigint): bigint[] {
+  const out = new Array<bigint>(poly.length + 1).fill(0n);
+  poly.forEach((v, m) => {
+    out[m + 1] += v;
+    out[m] += v * c;
+  });
+  return out;
+}
+
+// The polynomial with integer coefficients through the points (xs[i], ys[i]).
+function interpolate(xs: bigint[], ys: bigint[]): bigint[] {
+  const denom = xs.map((xi, i) => xs.reduce((acc, xj, j) => (j === i ? acc : acc * (xi - xj)), 1n));
+  const common = denom.reduce((acc, d) => acc * d, 1n);
+  const total = new Array<bigint>(xs.length).fill(0n);
+  xs.forEach((_, i) => {
+    let numerator: bigint[] = [1n];
+    xs.forEach((xj, j) => {
+      if (j !== i) numerator = timesLinear(numerator, -xj);
+    });
+    const weight = (common / denom[i]) * ys[i];
+    numerator.forEach((c, m) => {
+      total[m] += c * weight;
+    });
+  });
+  return total.map((c) => c / common);
+}
+
+// Lowest power zero, and the first coefficient positive.
+function normalise(p: number[]): number[] {
+  let lo = 0;
+  while (lo < p.length && p[lo] === 0) lo++;
+  let hi = p.length;
+  while (hi > lo && p[hi - 1] === 0) hi--;
+  const out = p.slice(lo, hi);
+  if (out.length === 0) return [0];
+  return out[0] < 0 ? out.map((c) => -c) : out;
+}
+
+// The Alexander polynomial of a knot diagram, normalised.
+export function alexanderOf(diagram: Diagram): number[] {
+  const k = diagram.crossings.length;
+  if (k === 0) return [1];
+  const matrix = alexanderMatrix(diagram);
+  const minor = matrix.slice(0, k - 1).map((row) => row.slice(0, k - 1));
+  // The minor's determinant has degree at most k - 1, so k sample points fix it.
+  const xs = Array.from({ length: k }, (_, i) => BigInt(i + 2));
+  const ys = xs.map((x) => bareissBig(minor.map((row) => row.map((entry) => evalAt(entry, x)))));
+  return normalise(interpolate(xs, ys).map((c) => Number(c)));
+}
+
+export function samePolynomial(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((c, i) => c === b[i]);
+}
+@}
+
+\section{Taught library}
+
+The library is the set of knots the lessons teach, and of links a rope makes with
+an anchor. Each knot entry has a name, a determinant and a normalised Alexander
+polynomial. The values are those of the knots themselves, and the tests below
+compute them from scripted ropes, so a wrong value shows as a failing test.
+
+The stage-two knots are the unknot, the trefoil (the overhand) and the
+figure-eight. The figure-eight is the knot of the research's table for the
+figure-eight on a bight. The anchoring, belaying and rappel lessons add more in
+stage six, and each addition must pass the collision check below.
+
+The link entry is the hitch. A rope making one turn around an anchor forms a link
+with determinant two.
+
+@d Recogniser: taught library @{
+export interface KnotEntry {
+  name: string;
+  determinant: number;
+  alexander: readonly number[];
+}
+
+export const LIBRARY: readonly KnotEntry[] = [
+  { name: 'unknot', determinant: 1, alexander: [1] },
+  { name: 'trefoil', determinant: 3, alexander: [1, -1, 1] },
+  { name: 'figure-eight', determinant: 5, alexander: [1, -3, 1] },
+];
+
+export interface LinkEntry {
+  name: string;
+  determinant: number;
+}
+
+// A rope hitched on an anchor. Determinant two is the Hopf link.
+export const LINKS: readonly LinkEntry[] = [{ name: 'hitch', determinant: 2 }];
+@}
+
+\section{Anchors as closed loops}
+
+Each anchor is a closed polyline for recognition. The last point joins the first.
+A bar is a loop from its two ends back through its support. A ring lies in a plane,
+a tree loop lies round a vertical trunk, and a carabiner is a loop with two round
+ends. The physics shapes of the scene stay separate. Only the recogniser sees these
+loops.
+
+@d Recogniser: anchors as components @{
+import type { Vec3 } from '../rope/snapshot';
+
+const SAMPLES = 48;
+
+// A bar: the segment from a to b, then back through a support offset by s.
+export function barLoop(a: Vec3, b: Vec3, s: Vec3): Vec3[] {
+  const add = (p: Vec3, q: Vec3): Vec3 => ({ x: p.x + q.x, y: p.y + q.y, z: p.z + q.z });
+  return [a, b, add(b, s), add(a, s)];
+}
+
+// A ring in the xy plane, round a centre.
+export function ringXY(centre: Vec3, radius: number): Vec3[] {
+  return Array.from({ length: SAMPLES }, (_, i) => {
+    const t = (2 * Math.PI * i) / SAMPLES;
+    return { x: centre.x + radius * Math.cos(t), y: centre.y + radius * Math.sin(t), z: centre.z };
+  });
+}
+
+// A loop round a vertical trunk: a ring in the xz plane.
+export function treeLoop(centre: Vec3, radius: number): Vec3[] {
+  return Array.from({ length: SAMPLES }, (_, i) => {
+    const t = (2 * Math.PI * i) / SAMPLES;
+    return { x: centre.x + radius * Math.cos(t), y: centre.y, z: centre.z + radius * Math.sin(t) };
+  });
+}
+
+// A carabiner's loop, seen face-on: two straight sides with round ends at x = plus or minus halfLength.
+export function carabiner(centre: Vec3, halfLength: number, radius: number): Vec3[] {
+  const half = SAMPLES / 2;
+  const right = Array.from({ length: half }, (_, i) => {
+    const t = -Math.PI / 2 + (Math.PI * i) / (half - 1);
+    return { x: centre.x + halfLength + radius * Math.cos(t), y: centre.y + radius * Math.sin(t), z: centre.z };
+  });
+  const left = Array.from({ length: half }, (_, i) => {
+    const t = Math.PI / 2 + (Math.PI * i) / (half - 1);
+    return { x: centre.x - halfLength + radius * Math.cos(t), y: centre.y + radius * Math.sin(t), z: centre.z };
+  });
+  return [...right, ...left];
+}
+@}
+
+\section{Tests}
+
+The stage-two tests are the proof for the stage. Each library knot is recognised
+from a scripted rope of that knot. The Alexander polynomials are computed and
+compared with the library. A rope turned round a bar is a link with the bar, and a
+rope clear of the bar is not. The collision check fails if two library entries
+share both invariants.
+
+The figure-eight curve is the standard parametrisation, sampled at 120 points.
+The hitch is one turn of rope round the bar.
+
+@d Recogniser: stage two tests @{
+import { describe, expect, it } from 'vitest';
+import type { Vec3 } from '../rope/snapshot';
+import { barLoop, ringXY } from '../anchors/shapes';
+import { alexanderOf, samePolynomial } from './alexander';
+import { diagramOf } from './crossings';
+import { LIBRARY, LINKS } from './library';
+import { recognise } from './recogniser';
+
+const SAMPLES = 120;
+
+function sample(curve: (t: number) => Vec3): Vec3[] {
+  return Array.from({ length: SAMPLES }, (_, i) => curve((2 * Math.PI * i) / SAMPLES));
+}
+
+const trefoil = (t: number): Vec3 => ({
+  x: Math.sin(t) + 2 * Math.sin(2 * t),
+  y: Math.cos(t) - 2 * Math.cos(2 * t),
+  z: -Math.sin(3 * t),
+});
+
+const figureEight = (t: number): Vec3 => {
+  const r = 2 + Math.cos(2 * t);
+  return { x: r * Math.cos(3 * t), y: r * Math.sin(3 * t), z: Math.sin(4 * t) };
+};
+
+// The bar runs along z, and its support hangs off to the side at y = -0.6.
+const bar = barLoop({ x: 0, y: 0, z: -0.4 }, { x: 0, y: 0, z: 0.4 }, { x: 0, y: -0.6, z: 0 });
+
+describe('stage two recogniser', () => {
+  it('names the figure-eight from its scripted rope', () => {
+    const result = recognise({ points: sample(figureEight), radius: 0.02 });
+    expect(result.name).toBe('figure-eight');
+    expect(result.determinant).toBe(5);
+  });
+
+  it('gives the trefoil and the figure-eight their Alexander polynomials', () => {
+    expect(alexanderOf(diagramOf([sample(trefoil)]))).toEqual([1, -1, 1]);
+    expect(alexanderOf(diagramOf([sample(figureEight)]))).toEqual([1, -3, 1]);
+  });
+
+  it('names a rope turned once round the bar as a hitch', () => {
+    const turn = Array.from({ length: 40 }, (_, i) => {
+      const t = (2 * Math.PI * i) / 40;
+      return { x: 0.3 * Math.cos(t), y: 0.3 * Math.sin(t), z: 0 };
+    });
+    const result = recognise({ points: turn, radius: 0.02 }, [bar]);
+    expect(result.anchors[0]).toEqual({ name: 'hitch', determinant: 2 });
+  });
+
+  it('finds no link with a rope that is clear of the bar', () => {
+    const clear = ringXY({ x: 2, y: 0, z: 0 }, 0.3);
+    const result = recognise({ points: clear, radius: 0.02 }, [bar]);
+    expect(result.anchors[0]).toEqual({ name: null, determinant: 0 });
+  });
+
+  it('keeps every library entry apart from the others', () => {
+    for (let i = 0; i < LIBRARY.length; i++) {
+      for (let j = i + 1; j < LIBRARY.length; j++) {
+        const a = LIBRARY[i];
+        const b = LIBRARY[j];
+        const shared = a.determinant === b.determinant && samePolynomial(a.alexander, b.alexander);
+        expect(shared, `${a.name} and ${b.name} share both invariants`).toBe(false);
+      }
+    }
+  });
+
+  it('keeps every link entry named once', () => {
+    const names = LINKS.map((e) => e.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
+@}

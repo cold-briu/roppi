@@ -1,4 +1,4 @@
-// {28: literate/assembly.weft:45}
+// {32: literate/assembly.weft:45}
 
 // Lessons: record and stub
 // {16: literate/08-lessons-and-ui.weft:20}
@@ -37,4 +37,4 @@ export const STAGE_ONE_LESSONS: readonly LessonRecord[] = [
 ];
 // {:16}
 
-// {:28}
+// {:32}

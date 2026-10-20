@@ -38,15 +38,29 @@ import type { Vec3 } from '../rope/snapshot';
 
 const EPS = 1e-12;
 
-interface Crossing {
+// One crossing of the projected diagram. The over strand passes above the under strand.
+// A passage is a component, a segment of that component, and a fraction along the segment.
+export interface Crossing {
+  overComponent: number;
   overSegment: number;
   overAt: number;
+  underComponent: number;
   underSegment: number;
   underAt: number;
+  // The handedness of the crossing, from the directions of its two strands in the view.
+  sign: 1 | -1;
 }
 
-// Where segment a-b meets segment c-d in the view, as fractions along each, or
-// null. Parallel or degenerate segments never meet.
+// A diagram of closed components, seen down the z axis.
+export interface Diagram {
+  components: number;
+  crossings: Crossing[];
+  // How many under-passages each component has. Each one cuts the component into arcs.
+  underCount: number[];
+}
+
+// Where segment a-b meets segment c-d in the view, as fractions along each, or null.
+// Parallel or degenerate segments never meet.
 function meet(a: Vec3, b: Vec3, c: Vec3, d: Vec3): { s: number; u: number } | null {
   const rx = b.x - a.x;
   const ry = b.y - a.y;
@@ -62,57 +76,104 @@ function meet(a: Vec3, b: Vec3, c: Vec3, d: Vec3): { s: number; u: number } | nu
   return { s, u };
 }
 
-// Every crossing of the closed loop in the view, with its over strand decided.
-function crossingsOf(loop: readonly Vec3[]): Crossing[] {
-  const n = loop.length;
-  const found: Crossing[] = [];
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue; // these two segments share a vertex
-      const a = loop[i];
-      const b = loop[(i + 1) % n];
-      const c = loop[j];
-      const d = loop[(j + 1) % n];
-      const hit = meet(a, b, c, d);
-      if (!hit) continue;
-      const depthI = a.z + hit.s * (b.z - a.z);
-      const depthJ = c.z + hit.u * (d.z - c.z);
-      if (depthI > depthJ) {
-        found.push({ overSegment: i, overAt: hit.s, underSegment: j, underAt: hit.u });
-      } else {
-        found.push({ overSegment: j, overAt: hit.u, underSegment: i, underAt: hit.s });
+// The crossings of closed components. A component is a list of points, and its last
+// point joins back to its first. Segments of one component that touch are skipped.
+export function diagramOf(components: readonly (readonly Vec3[])[]): Diagram {
+  const crossings: Crossing[] = [];
+  for (let ci = 0; ci < components.length; ci++) {
+    for (let cj = ci; cj < components.length; cj++) {
+      const a = components[ci];
+      const b = components[cj];
+      for (let i = 0; i < a.length; i++) {
+        const start = ci === cj ? i + 2 : 0;
+        for (let j = start; j < b.length; j++) {
+          if (ci === cj && i === 0 && j === b.length - 1) continue; // these two share a vertex
+          const p = a[i];
+          const q = a[(i + 1) % a.length];
+          const r = b[j];
+          const s = b[(j + 1) % b.length];
+          const hit = meet(p, q, r, s);
+          if (!hit) continue;
+          const depthI = p.z + hit.s * (q.z - p.z);
+          const depthJ = r.z + hit.u * (s.z - r.z);
+          const first = { component: ci, segment: i, at: hit.s, dx: q.x - p.x, dy: q.y - p.y };
+          const second = { component: cj, segment: j, at: hit.u, dx: s.x - r.x, dy: s.y - r.y };
+          const [over, under] = depthI > depthJ ? [first, second] : [second, first];
+          crossings.push({
+            overComponent: over.component,
+            overSegment: over.segment,
+            overAt: over.at,
+            underComponent: under.component,
+            underSegment: under.segment,
+            underAt: under.at,
+            sign: over.dx * under.dy - over.dy * under.dx > 0 ? 1 : -1,
+          });
+        }
       }
     }
   }
-  return found;
+  const underCount = components.map(() => 0);
+  for (const c of crossings) underCount[c.underComponent] += 1;
+  return { components: components.length, crossings, underCount };
 }
 
-// One row per crossing, one column per arc. Each row sums to zero.
-export function foxMatrix(loop: readonly Vec3[]): number[][] {
-  const found = crossingsOf(loop);
-  const k = found.length;
-  const underPositions = found.map((c) => c.underSegment + c.underAt);
-  const order = found.map((_, index) => index).sort((p, q) => underPositions[p] - underPositions[q]);
-  const rank = new Array<number>(k);
-  order.forEach((crossing, position) => {
-    rank[crossing] = position;
-  });
-  const sortedUnder = order.map((crossing) => underPositions[crossing]);
+// The Wirtinger relation at one crossing. Arcs are numbered component by component:
+// arc base[c] + k is the k-th arc of component c, from one under-passage to the next.
+export interface Relation {
+  overArc: number;
+  inArc: number;
+  outArc: number;
+  sign: 1 | -1;
+}
 
-  // The arc that holds a position along the loop: the last under-passage at or
-  // before it starts that arc. Before the first passage, the arc wraps round.
-  const arcAt = (position: number): number => {
-    const passed = sortedUnder.filter((p) => p <= position).length;
-    return (passed - 1 + k) % k;
+export function relationsOf(diagram: Diagram): Relation[] {
+  const base: number[] = [];
+  let total = 0;
+  for (const u of diagram.underCount) {
+    base.push(total);
+    total += u;
+  }
+  // The rank of each crossing's under-passage among the under-passages of its component.
+  const rank = new Array<number>(diagram.crossings.length).fill(0);
+  for (let c = 0; c < diagram.components; c++) {
+    diagram.crossings
+      .map((x, index) => ({ index, position: x.underSegment + x.underAt, component: x.underComponent }))
+      .filter((x) => x.component === c)
+      .sort((p, q) => p.position - q.position)
+      .forEach((x, k) => {
+        rank[x.index] = k;
+      });
+  }
+  // The arc of component c that holds a position: the last under-passage at or before it.
+  const arcAt = (c: number, position: number): number => {
+    const u = diagram.underCount[c];
+    if (u === 0) throw new Error('a component with no under-passage is split from the rest');
+    const passed = diagram.crossings.filter(
+      (x) => x.underComponent === c && x.underSegment + x.underAt <= position,
+    ).length;
+    return base[c] + ((passed - 1 + u) % u);
   };
+  return diagram.crossings.map((x, index) => {
+    const u = diagram.underCount[x.underComponent];
+    const k = rank[index];
+    const start = base[x.underComponent];
+    return {
+      overArc: arcAt(x.overComponent, x.overSegment + x.overAt),
+      inArc: start + ((k - 1 + u) % u),
+      outArc: start + (k % u),
+      sign: x.sign,
+    };
+  });
+}
 
-  const matrix = found.map(() => new Array<number>(k).fill(0));
-  found.forEach((crossing, index) => {
-    const j = rank[index];
-    const row = matrix[index];
-    row[(j - 1 + k) % k] -= 1;
-    row[j] -= 1;
-    row[arcAt(crossing.overSegment + crossing.overAt)] += 2;
+// The Fox colouring matrix: one row per crossing, one column per arc. Each row sums to zero.
+export function foxMatrix(diagram: Diagram): number[][] {
+  const arcs = diagram.crossings.length; // every arc starts at an under-passage
+  const matrix = diagram.crossings.map(() => new Array<number>(arcs).fill(0));
+  relationsOf(diagram).forEach((rel, row) => {
+    matrix[row][rel.inArc] -= 1;
+    matrix[row][rel.outArc] -= 1;
+    matrix[row][rel.overArc] += 2;
   });
   return matrix;
 }
@@ -127,6 +188,8 @@ is known to be whole. A rope with no crossings has the empty matrix, whose
 determinant is one, which is the unknot's value.
 
 @d Topology: determinant @{
+import { foxMatrix, type Diagram } from './crossings';
+
 // Exact integer determinant by the Bareiss method. The empty matrix has determinant one.
 export function bareiss(input: readonly (readonly number[])[]): number {
   const m = input.map((row) => [...row]);
@@ -150,8 +213,12 @@ export function bareiss(input: readonly (readonly number[])[]): number {
   return n === 0 ? 1 : sign * m[n - 1][n - 1];
 }
 
-// The knot determinant: the absolute value of the Fox matrix with its last row and column removed.
-export function knotDeterminant(matrix: readonly (readonly number[])[]): number {
+// The determinant of a diagram of knots or links: the absolute value of the Fox matrix
+// with its last row and column removed. A link with a component that is never under
+// another is split, and its determinant is zero.
+export function linkDeterminant(diagram: Diagram): number {
+  if (diagram.components > 1 && diagram.underCount.some((u) => u === 0)) return 0;
+  const matrix = foxMatrix(diagram);
   const k = matrix.length;
   const minor = matrix.slice(0, k - 1).map((row) => row.slice(0, k - 1));
   return Math.abs(bareiss(minor));
@@ -169,32 +236,44 @@ The recogniser reads a snapshot and changes nothing. It is a pure function, so
 the page can call it whenever the rope has moved.
 
 @d Topology: recogniser @{
-import type { RopeSnapshot } from '../rope/snapshot';
-import { foxMatrix } from './crossings';
-import { knotDeterminant } from './determinant';
+import type { RopeSnapshot, Vec3 } from '../rope/snapshot';
+import { alexanderOf, samePolynomial } from './alexander';
+import { diagramOf } from './crossings';
+import { linkDeterminant } from './determinant';
+import { LIBRARY, LINKS } from './library';
 
-export interface KnotEntry {
-  name: string;
+export interface AnchorResult {
+  name: string | null;
   determinant: number;
 }
-
-// Stage one knows two knots. Stage two adds the Alexander polynomial and the full library.
-export const LIBRARY: readonly KnotEntry[] = [
-  { name: 'unknot', determinant: 1 },
-  { name: 'trefoil', determinant: 3 },
-];
 
 export interface KnotResult {
   name: string | null;
   determinant: number;
+  alexander: number[];
   crossings: number;
+  anchors: AnchorResult[];
 }
 
-export function recognise(snapshot: RopeSnapshot): KnotResult {
-  const matrix = foxMatrix(snapshot.points);
-  const determinant = knotDeterminant(matrix);
-  const entry = LIBRARY.find((known) => known.determinant === determinant);
-  return { name: entry?.name ?? null, determinant, crossings: matrix.length };
+// Recognises the rope's knot, and each anchor's link with the rope. The rope is closed by a
+// straight segment from its last link to its first. That segment is implicit in the loop.
+export function recognise(snapshot: RopeSnapshot, anchors: readonly (readonly Vec3[])[] = []): KnotResult {
+  const rope = diagramOf([snapshot.points]);
+  const determinant = linkDeterminant(rope);
+  const alexander = alexanderOf(rope);
+  const known = LIBRARY.find((e) => e.determinant === determinant && samePolynomial(e.alexander, alexander));
+  const linked = anchors.map((shape) => {
+    const d = linkDeterminant(diagramOf([snapshot.points, shape]));
+    const hit = d === 0 ? undefined : LINKS.find((e) => e.determinant === d);
+    return { name: hit?.name ?? null, determinant: d };
+  });
+  return {
+    name: known?.name ?? null,
+    determinant,
+    alexander,
+    crossings: rope.crossings.length,
+    anchors: linked,
+  };
 }
 @}
 

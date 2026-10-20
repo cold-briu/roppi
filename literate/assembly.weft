@@ -82,6 +82,24 @@ the page. Each route below names one file and the chunk that fills it.
 @<Topology: tests@>
 @}
 
+\section{Recogniser, stage two}
+
+@o app/src/topology/alexander.ts @{
+@<Recogniser: Alexander polynomial@>
+@}
+
+@o app/src/topology/library.ts @{
+@<Recogniser: taught library@>
+@}
+
+@o app/src/anchors/shapes.ts @{
+@<Recogniser: anchors as components@>
+@}
+
+@o app/src/topology/stage-two.test.ts @{
+@<Recogniser: stage two tests@>
+@}
+
 \section{Renderer}
 
 @o app/src/render/ropeTube.ts @{

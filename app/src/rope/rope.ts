@@ -1,4 +1,4 @@
-// {31: literate/assembly.weft:59}
+// {35: literate/assembly.weft:59}
 
 // Rope: physics model
 // {8: literate/05-rope-model.weft:77}
@@ -151,4 +151,4 @@ export function createRope(start: Vec3, obstacles: readonly Box[], pose?: Vec3[]
 }
 // {:8}
 
-// {:31}
+// {:35}

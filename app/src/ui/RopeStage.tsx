@@ -1,4 +1,4 @@
-// {27: literate/assembly.weft:41}
+// {31: literate/assembly.weft:41}
 
 // UI: rope stage
 // {18: literate/08-lessons-and-ui.weft:104}
@@ -286,4 +286,4 @@ export function RopeStage() {
 }
 // {:18}
 
-// {:27}
+// {:31}

@@ -35,6 +35,7 @@
 @i literate/06-topology.weft
 @i literate/07-renderer.weft
 @i literate/08-lessons-and-ui.weft
+@i literate/09-recogniser-stage-two.weft
 
 % ---- Appendix: the assembly (the only file with output directives) ---
 @i literate/assembly.weft

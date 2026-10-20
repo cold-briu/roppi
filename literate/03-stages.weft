@@ -22,10 +22,10 @@ the rope decision of the architecture chapter.
 draws continuously; and a test that drives the rope into a trefoil returns
 \texttt{trefoil}, while a test of the unknot returns \texttt{unknot}.
 
-\paragraph{Status.} Built and tested. The page builds and runs in a headless
-browser, and the rope can be dragged. The trefoil test feeds the recogniser a
-scripted curve, not a rope tied by dragging. A check on a rope tied by hand is
-still open, and it belongs with the stage's last check.
+\paragraph{Status.} Proven on 2026-10-19. The page builds and runs in a headless
+browser, and the rope can be dragged. A rope tied by hand into an overhand knot
+is named \texttt{trefoil} by the page. The unit tests also feed the recogniser a
+scripted curve, which covers the same knot without a person tying it.
 
 \section{Stage 2 --- the recogniser}
 

@@ -1,7 +1,7 @@
-// {40: literate/assembly.weft:95}
+// {38: literate/assembly.weft:91}
 
 // Renderer: tube tests
-// {16: literate/07-renderer.weft:124}
+// {15: literate/07-renderer.weft:124}
 
 import { describe, expect, it } from 'vitest';
 import type { RopeSnapshot } from '../rope/snapshot';
@@ -36,6 +36,6 @@ describe('rope tube', () => {
     tube.dispose();
   });
 });
-// {:16}
+// {:15}
 
-// {:40}
+// {:38}

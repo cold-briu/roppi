@@ -66,10 +66,6 @@ the page. Each route below names one file and the chunk that fills it.
 
 \section{Topology}
 
-@o app/src/topology/closure.ts @{
-@<Topology: closure@>
-@}
-
 @o app/src/topology/crossings.ts @{
 @<Topology: crossings and Fox matrix@>
 @}

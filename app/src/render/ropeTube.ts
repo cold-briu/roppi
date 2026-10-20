@@ -1,7 +1,7 @@
-// {39: literate/assembly.weft:91}
+// {37: literate/assembly.weft:87}
 
 // Renderer: rope tube
-// {15: literate/07-renderer.weft:26}
+// {14: literate/07-renderer.weft:26}
 
 import * as THREE from 'three';
 import type { RopeSnapshot } from '../rope/snapshot';
@@ -91,6 +91,6 @@ export class RopeTube {
     this.material.dispose();
   }
 }
-// {:15}
+// {:14}
 
-// {:39}
+// {:37}

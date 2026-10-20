@@ -46,12 +46,16 @@ Each box is one concept, and each concept gets its own literate chapter.
     so a rope cannot pass through another part of itself or through an anchor.
     Continuous collision detection (`setCcdEnabled(true)`) is enabled on the
     links, so a fast drag does not tunnel.
-  - **Adjacent links do not collide:** each joint is created with
-    `setContactsEnabled(false)` between its two links. Collision groups keep
-    links from touching their non-neighbours where they should not.
-  - **Dragging:** the grab point is a kinematic body
-    (`KinematicPositionBased`), moved by the mouse. Kinematic bodies are not
-    pushed by contacts, so the player's hand is never blocked by the rope.
+  - **Neighbouring links do collide (revised):** an earlier plan turned off
+    contacts between each joint's two links. A joint only limits how far links
+    separate, so a lifted link could pass through its neighbour. Contacts stay
+    on for all pairs, and the joint holds the spacing.
+  - **Grab (revised):** the held link is steered toward the mouse by setting its
+    velocity each step, so the player can hold any part of the rope. It is not a
+    joint: a joint pulls with a force the contacts cannot overcome, so a held
+    link passed through a bar. The grab cannot pull a link further than the rope allows.
+  - **Dragging:** the hand is only a target, so it moves freely. The held link
+    stops where it meets an obstacle.
   - **Rendering:** each frame the link centres are smoothed with a Catmull-Rom
     curve and the tube's vertices are rewritten into a buffer allocated once.
     The rope never looks like a set of links.
@@ -85,18 +89,19 @@ Each box is one concept, and each concept gets its own literate chapter.
   costs about 0.7 ms. The cap is a deliberate departure from pure physics: at a
   hand speed of 1.5 m/s the tail sits at the cap. The soft-body rope is not used.
 
-## Decision 3 — Closure: joined through a point behind the background
+## Decision 3 — Closure: a straight segment between the ends (revised)
 
-- **Chosen:** for recognition only, each free end is extended straight back
-  along the view direction to a point far behind the scene. The two extensions
-  are joined there. The closure is never drawn.
-- **Alternatives:** close through the anchor (invalid for a rope with no
-  anchor); close the ends directly with a chord (cuts through the rope and
-  creates false crossings).
-- **Why:** the closure sits behind every object, so any crossing it makes with
-  the rope passes under the rope. That is the physical picture and needs no
-  special case. Agreed in review.
-- **Consequence:** the rope's ends look open on screen.
+- **Chosen:** for recognition only, the two free ends are joined by a straight
+  segment, and the loop is read from there. The segment is never drawn.
+- **Revised from:** a path through a point far behind the scene, along the view
+  direction. That path was dropped. Over 200 random turns of a trefoil it misread
+  49 of them as an unknot, because a strand of the rope could lie in the path,
+  depending on how the rope was turned. The straight segment misread none, and it
+  does not depend on the view.
+- **Alternatives:** close through the anchor (invalid for a rope with no anchor).
+- **Consequence:** the rope's ends look open on screen. A rope can pass through
+  the straight segment, which changes the knot when the ends are close to a loop.
+  For a loose knot this is the same as pulling the end through the loop.
 
 ## Decision 4 — Recognition: planar projection, a crossing code, then invariants
 

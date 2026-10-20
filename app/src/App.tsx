@@ -1,7 +1,7 @@
-// {27: literate/assembly.weft:37}
+// {26: literate/assembly.weft:37}
 
 // UI: application
-// {20: literate/08-lessons-and-ui.weft:271}
+// {19: literate/08-lessons-and-ui.weft:395}
 
 import { STAGE_ONE_LESSONS } from './lessons/record';
 import { RopeStage } from './ui/RopeStage';
@@ -15,6 +15,11 @@ export function App() {
         <p className="text-sm text-slate-400">
           {lesson.name}. {lesson.prompt}
         </p>
+        <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-sm text-slate-300">
+          {lesson.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
       </header>
       <section className="relative min-h-0 flex-1">
         <RopeStage />
@@ -22,6 +27,6 @@ export function App() {
     </main>
   );
 }
-// {:20}
+// {:19}
 
-// {:27}
+// {:26}

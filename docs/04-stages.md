@@ -15,7 +15,7 @@ concept below appears, however thinly.
 |---|---|
 | Rope model | A rigid-link chain in Rapier, with the rope joint and contact rules from decision 2. |
 | Anchors | One anchor type (a bar), as scene data. |
-| Closure | The two ends are joined behind the background, for recognition only. |
+| Closure | The two ends are joined by a straight segment, for recognition only. The behind-background closure was dropped after it misread a trefoil on about a quarter of random turns. |
 | Topology | Projection, crossing code, and the determinant. Alexander is stubbed. |
 | Recogniser | Matches the determinant against a two-entry library: unknot and trefoil. |
 | Renderer | The rope drawn as one continuous tube, with render-on-demand. |

@@ -1,7 +1,7 @@
-// {35: literate/assembly.weft:73}
+// {33: literate/assembly.weft:69}
 
 // Topology: crossings and Fox matrix
-// {11: literate/06-topology.weft:50}
+// {10: literate/06-topology.weft:36}
 
 import type { Vec3 } from '../rope/snapshot';
 
@@ -85,6 +85,6 @@ export function foxMatrix(loop: readonly Vec3[]): number[][] {
   });
   return matrix;
 }
-// {:11}
+// {:10}
 
-// {:35}
+// {:33}

@@ -1,7 +1,7 @@
-// {31: literate/assembly.weft:55}
+// {30: literate/assembly.weft:55}
 
 // Rope: snapshot types
-// {7: literate/05-rope-model.weft:20}
+// {7: literate/05-rope-model.weft:26}
 
 export interface Vec3 {
   x: number;
@@ -9,7 +9,7 @@ export interface Vec3 {
   z: number;
 }
 
-// The link centres in order, from the grab end to the free end.
+// The link centres in order, from the first link to the last.
 export interface RopeSnapshot {
   readonly points: readonly Vec3[];
   readonly radius: number;
@@ -22,4 +22,4 @@ export interface Box {
 }
 // {:7}
 
-// {:31}
+// {:30}

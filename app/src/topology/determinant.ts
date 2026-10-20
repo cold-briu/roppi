@@ -1,7 +1,7 @@
-// {36: literate/assembly.weft:77}
+// {34: literate/assembly.weft:73}
 
 // Topology: determinant
-// {12: literate/06-topology.weft:143}
+// {11: literate/06-topology.weft:129}
 
 // Exact integer determinant by the Bareiss method. The empty matrix has determinant one.
 export function bareiss(input: readonly (readonly number[])[]): number {
@@ -32,6 +32,6 @@ export function knotDeterminant(matrix: readonly (readonly number[])[]): number 
   const minor = matrix.slice(0, k - 1).map((row) => row.slice(0, k - 1));
   return Math.abs(bareiss(minor));
 }
-// {:12}
+// {:11}
 
-// {:36}
+// {:34}

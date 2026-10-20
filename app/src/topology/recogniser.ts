@@ -1,10 +1,9 @@
-// {37: literate/assembly.weft:81}
+// {35: literate/assembly.weft:77}
 
 // Topology: recogniser
-// {13: literate/06-topology.weft:185}
+// {12: literate/06-topology.weft:171}
 
 import type { RopeSnapshot } from '../rope/snapshot';
-import { closeRope } from './closure';
 import { foxMatrix } from './crossings';
 import { knotDeterminant } from './determinant';
 
@@ -26,11 +25,11 @@ export interface KnotResult {
 }
 
 export function recognise(snapshot: RopeSnapshot): KnotResult {
-  const matrix = foxMatrix(closeRope(snapshot.points));
+  const matrix = foxMatrix(snapshot.points);
   const determinant = knotDeterminant(matrix);
   const entry = LIBRARY.find((known) => known.determinant === determinant);
   return { name: entry?.name ?? null, determinant, crossings: matrix.length };
 }
-// {:13}
+// {:12}
 
-// {:37}
+// {:35}

@@ -1,7 +1,7 @@
-// {38: literate/assembly.weft:85}
+// {36: literate/assembly.weft:81}
 
 // Topology: tests
-// {14: literate/06-topology.weft:224}
+// {13: literate/06-topology.weft:209}
 
 import { describe, expect, it } from 'vitest';
 import type { Vec3 } from '../rope/snapshot';
@@ -28,6 +28,15 @@ const curl = (t: number): Vec3 => {
   const r = 0.5 + Math.cos(t);
   return { x: r * Math.cos(t), y: r * Math.sin(t), z: 0.2 * Math.sin(t) };
 };
+
+// Turn a point about the x axis by a, then the y axis by b, then the z axis by c.
+function turn(p: Vec3, a: number, b: number, c: number): Vec3 {
+  const y1 = p.y * Math.cos(a) - p.z * Math.sin(a);
+  const z1 = p.y * Math.sin(a) + p.z * Math.cos(a);
+  const x2 = p.x * Math.cos(b) + z1 * Math.sin(b);
+  const z2 = -p.x * Math.sin(b) + z1 * Math.cos(b);
+  return { x: x2 * Math.cos(c) - y1 * Math.sin(c), y: x2 * Math.sin(c) + y1 * Math.cos(c), z: z2 };
+}
 
 describe('determinant', () => {
   it('computes exact determinants of small integer matrices', () => {
@@ -59,11 +68,28 @@ describe('recogniser', () => {
     expect(result.crossings).toBe(3);
   });
 
+  it('names the trefoil the same whichever way the rope is turned', () => {
+    // A fixed seed, so the same 100 turns run every time.
+    let seed = 11;
+    const next = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed / 2147483647) * Math.PI * 2;
+    };
+    for (let k = 0; k < 100; k++) {
+      // One set of angles for the whole curve, so it is turned rigidly.
+      const a = next();
+      const b = next();
+      const c = next();
+      const turned = sample(trefoil).map((p) => turn(p, a, b, c));
+      expect(recognise({ points: turned, radius: 0.02 }).name).toBe('trefoil');
+    }
+  });
+
   it('names the mirror image of the trefoil as the trefoil', () => {
     const result = recognise({ points: sample(mirroredTrefoil), radius: 0.02 });
     expect(result.name).toBe('trefoil');
   });
 });
-// {:14}
+// {:13}
 
-// {:38}
+// {:36}

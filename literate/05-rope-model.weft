@@ -1,10 +1,15 @@
 \chapter{Rope model}
 
 The rope is a chain of forty links, each a small ball, joined neighbour to
-neighbour. Each joint keeps the links within one link spacing of each other, and
-a joint between neighbours turns off their contact so they never push each
-other. Everything else collides. The top link is held by a kinematic grab point
-that the player moves. The rope model knows nothing of three.js or React.
+neighbour. Each joint keeps neighbouring links within one link spacing of each
+other. Every pair of links collides, neighbours included. A joint alone only
+stops links from moving apart, so without neighbour contact a link could pass
+through the one beside it.
+
+Both ends are free. Nothing holds the rope in place, so the player moves it by
+grabbing any link. Gravity is a switch: off by default, so the rope floats and
+can be tied in the air, and on, so the rope falls onto the floor. The rope model
+knows nothing of three.js or React.
 
 The numbers come from the decision gate in the architecture chapter. Solver
 iterations, damping and the speed cap are the values that passed it. The cap is
@@ -13,9 +18,10 @@ physics, and the gate result records why.
 
 \section{Shapes the rest of the code reads}
 
-The rope model returns a snapshot: the link centres in order, from the grab end
-to the free end, and the link radius. Anchors are boxes in the scene. The model
-takes them as plain shapes, so it does not depend on what they are for.
+The rope model returns a snapshot: the link centres in order, from the first
+link to the last, and the link radius. Anchors and the floor are boxes in the
+scene. The model takes them as plain shapes, so it does not depend on what they
+are for.
 
 @d Rope: snapshot types @{
 export interface Vec3 {
@@ -24,7 +30,7 @@ export interface Vec3 {
   z: number;
 }
 
-// The link centres in order, from the grab end to the free end.
+// The link centres in order, from the first link to the last.
 export interface RopeSnapshot {
   readonly points: readonly Vec3[];
   readonly radius: number;
@@ -42,12 +48,31 @@ export interface Box {
 The physics engine is loaded once and shared. A rope is created in a world of
 its own, so disposing of a rope frees exactly what it made.
 
-The grab point is a kinematic body. A kinematic body is not pushed by contacts,
-so the rope never blocks the player's hand. Each link is a dynamic ball with
-continuous collision detection on, so a fast drag cannot pass a link through
-another. The speed cap is applied to every link after the step, and the step
-returns the fastest link speed, which the page uses to decide when the rope has
-settled.
+Each link is a dynamic ball with continuous collision detection on, so a fast
+drag cannot pass a link through another. The physics runs in four substeps per frame. Measured on a trefoil falling onto
+the floor, one substep let two links that are not neighbours come within 0.029 m
+of each other, where contact is 0.040 m. That is a pass-through, and it let the
+knot slip apart. Four substeps keep the closest pair at 0.039 m. Linear damping
+slows each link, so a
+released rope settles instead of wobbling. Measured after a release, a damping of
+0.5 took about six seconds to settle, 2 took under two, and 4 took under one. The
+value is 4. The speed cap is applied to every link
+after the step, and the step returns the fastest link speed, which the page uses
+to decide when the rope has settled.
+
+A grab steers the held link toward the hand by setting its velocity before each
+step. It is not a joint. A joint pulls its link with a force the contacts cannot
+overcome, so a held link would pass through a bar it was pushed against. A
+velocity does give way to a contact, so the link stops at the bar. The grab
+starts at the link's current position, so picking a link never moves the rope.
+Releasing stops the steering. The rest of the rope follows the held link through
+the joints, as a real rope follows a hand.
+
+The held point moves toward the hand at no more than 1.5 m/s, and the link is
+steered toward it. Steering the link straight to the hand is what made the rope
+turbulent. On a 0.3 m flick of the mouse, the peak link speed was 1.3 m/s when
+steered straight to the hand, and 0.7 m/s with the limit. The limit is fast
+enough to follow a quick hand, so the held point stays under the cursor.
 
 @d Rope: physics model @{
 import RAPIER from '@@dimforge/rapier3d-compat';
@@ -58,11 +83,21 @@ export const LINK_RADIUS = 0.02;
 export const LINK_SPACING = 0.05;
 export const MAX_LINK_SPEED = 3;
 const SOLVER_ITERATIONS = 32;
-const LINEAR_DAMPING = 0.5;
+// Physics steps per frame. Links move about a diameter per step when the rope falls,
+// and with one step they pass into each other. Four steps stop that.
+const SUBSTEPS = 4;
+const LINEAR_DAMPING = 4;
+// The held point follows the hand no faster than this, so a quick flick cannot throw the rope.
+const HAND_SPEED = 1.5;
+// The held link is steered toward the held point at this rate, per second.
+const STEER_GAIN = 8;
 const GRAVITY = -9.81;
 
 export interface Rope {
-  grab(target: Vec3): void;
+  grabLink(index: number, target: Vec3): void;
+  moveGrab(target: Vec3): void;
+  releaseGrab(): void;
+  setGravity(on: boolean): void;
   step(): number;
   snapshot(): RopeSnapshot;
   dispose(): void;
@@ -75,19 +110,19 @@ export function initPhysics(): Promise<void> {
   return ready;
 }
 
-export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
-  const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
+// A rope lying straight from start along the x axis, with its first link at start.
+// With a pose, the links start at the given centres instead; the tests use this to start from a knot.
+export function createRope(start: Vec3, obstacles: readonly Box[], pose?: Vec3[]): Rope {
+  const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
   world.numSolverIterations = SOLVER_ITERATIONS;
-
-  const grab = world.createRigidBody(
-    RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(top.x, top.y, top.z),
-  );
+  world.timestep = 1 / 60 / SUBSTEPS;
 
   const links: RAPIER.RigidBody[] = [];
   for (let i = 0; i < LINK_COUNT; i++) {
+    const at = pose?.[i] ?? { x: start.x + i * LINK_SPACING, y: start.y, z: start.z };
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(top.x, top.y - i * LINK_SPACING, top.z)
+        .setTranslation(at.x, at.y, at.z)
         .setLinearDamping(LINEAR_DAMPING)
         .setCcdEnabled(true),
     );
@@ -96,15 +131,8 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
   }
 
   const origin = { x: 0, y: 0, z: 0 };
-  world.createImpulseJoint(RAPIER.JointData.spherical(origin, origin), grab, links[0], true);
   for (let i = 0; i < LINK_COUNT - 1; i++) {
-    const joint = world.createImpulseJoint(
-      RAPIER.JointData.rope(LINK_SPACING, origin, origin),
-      links[i],
-      links[i + 1],
-      true,
-    );
-    joint.setContactsEnabled(false);
+    world.createImpulseJoint(RAPIER.JointData.rope(LINK_SPACING, origin, origin), links[i], links[i + 1], true);
   }
 
   for (const box of obstacles) {
@@ -114,21 +142,74 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
     world.createCollider(RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z), body);
   }
 
+  // The held link, where the hand has asked it to be (goal), and the point it is
+  // steered toward (point), which follows the goal no faster than HAND_SPEED.
+  let held: { index: number; goal: Vec3; point: Vec3 } | null = null;
+
+  const releaseGrab = () => {
+    held = null;
+  };
+
+  // Steers the held link toward its goal by setting its velocity. A contact can
+  // still take that velocity away, so the link stops at a bar instead of passing it.
+  const steerHeld = () => {
+    if (!held) return;
+    const link = links[held.index];
+    const at = link.translation();
+    const dt = world.timestep;
+    const { goal, point } = held;
+    const dx = goal.x - point.x;
+    const dy = goal.y - point.y;
+    const dz = goal.z - point.z;
+    const gap = Math.hypot(dx, dy, dz);
+    if (gap > 0) {
+      const move = Math.min(gap, HAND_SPEED * dt) / gap;
+      point.x += dx * move;
+      point.y += dy * move;
+      point.z += dz * move;
+    }
+    const v = {
+      x: STEER_GAIN * (point.x - at.x),
+      y: STEER_GAIN * (point.y - at.y),
+      z: STEER_GAIN * (point.z - at.z),
+    };
+    const speed = Math.hypot(v.x, v.y, v.z);
+    if (speed > MAX_LINK_SPEED) {
+      const scale = MAX_LINK_SPEED / speed;
+      v.x *= scale;
+      v.y *= scale;
+      v.z *= scale;
+    }
+    link.setLinvel(v, true);
+  };
+
   return {
-    grab(target) {
-      grab.setNextKinematicTranslation(target);
+    grabLink(index, target) {
+      held = { index, goal: { ...target }, point: { ...links[index].translation() } };
+    },
+    moveGrab(target) {
+      if (held) held.goal = { ...target };
+    },
+    releaseGrab,
+    setGravity(on) {
+      world.gravity = on ? { x: 0, y: GRAVITY, z: 0 } : { x: 0, y: 0, z: 0 };
+      // A settled link sleeps, and a sleeping link ignores a change of gravity until it wakes.
+      for (const body of links) body.wakeUp();
     },
     step() {
-      world.step();
       let fastest = 0;
-      for (const body of links) {
-        const v = body.linvel();
-        const speed = Math.hypot(v.x, v.y, v.z);
-        if (speed > MAX_LINK_SPEED) {
-          const scale = MAX_LINK_SPEED / speed;
-          body.setLinvel({ x: v.x * scale, y: v.y * scale, z: v.z * scale }, true);
+      for (let k = 0; k < SUBSTEPS; k++) {
+        steerHeld();
+        world.step();
+        for (const body of links) {
+          const v = body.linvel();
+          const speed = Math.hypot(v.x, v.y, v.z);
+          if (speed > MAX_LINK_SPEED) {
+            const scale = MAX_LINK_SPEED / speed;
+            body.setLinvel({ x: v.x * scale, y: v.y * scale, z: v.z * scale }, true);
+          }
+          fastest = Math.max(fastest, Math.min(speed, MAX_LINK_SPEED));
         }
-        fastest = Math.max(fastest, Math.min(speed, MAX_LINK_SPEED));
       }
       return fastest;
     },
@@ -146,15 +227,44 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
 
 The tests carry the gate criteria forward, so a later change cannot quietly
 break the rope. A link may stretch by at most five per cent of the spacing. A
-drag must keep every link under the speed cap. A sweep past a bar must not put
-any link through the bar.
+drag must keep every link under the speed cap. A held link must not pass through
+a bar. A released rope must come to rest, which is the check against wobble.
 
 @d Rope: tests @{
 import { beforeAll, describe, expect, it } from 'vitest';
 import { LINK_COUNT, LINK_RADIUS, LINK_SPACING, MAX_LINK_SPEED, createRope, initPhysics } from './rope';
 import type { Vec3 } from './snapshot';
 
-const TOP: Vec3 = { x: 0, y: 1.5, z: 0 };
+const START: Vec3 = { x: -0.975, y: 0.2, z: 0 };
+const FLOOR = { center: { x: 0, y: -1, z: 0 }, half: { x: 2, y: 0.05, z: 2 } };
+
+// The standard trefoil curve as a pose for the rope, its links spaced evenly along it.
+function trefoilPose(): Vec3[] {
+  const f = (t: number): Vec3 => ({
+    x: Math.sin(t) + 2 * Math.sin(2 * t),
+    y: Math.cos(t) - 2 * Math.cos(2 * t),
+    z: -Math.sin(3 * t),
+  });
+  const N = 20000;
+  const T = 2 * Math.PI * 0.97;
+  const pts = Array.from({ length: N + 1 }, (_, i) => f((T * i) / N));
+  const cum = [0];
+  for (let i = 1; i <= N; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    cum.push(cum[i - 1] + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
+  }
+  const scale = (LINK_SPACING * (LINK_COUNT - 1)) / cum[N];
+  const out: Vec3[] = [];
+  for (let k = 0; k < LINK_COUNT; k++) {
+    const target = k * LINK_SPACING;
+    let j = 1;
+    while (j < N && cum[j] * scale < target) j++;
+    const p = pts[j];
+    out.push({ x: p.x * scale, y: p.y * scale, z: p.z * scale });
+  }
+  return out;
+}
 
 // The largest neighbour distance, divided by the spacing. One means taut.
 function longestStretch(points: readonly Vec3[]): number {
@@ -172,24 +282,83 @@ beforeAll(async () => {
 });
 
 describe('rope model', () => {
-  it('hangs from the grab with no link stretched beyond five per cent', () => {
-    const rope = createRope(TOP, []);
+  it('lies still with gravity off and no link stretched beyond five per cent', () => {
+    const rope = createRope(START, []);
     for (let s = 0; s < 300; s++) rope.step();
     const { points } = rope.snapshot();
     expect(points).toHaveLength(LINK_COUNT);
     expect(longestStretch(points)).toBeLessThan(1.05);
+    expect(rope.step()).toBeLessThan(0.01);
     rope.dispose();
   });
 
-  it('keeps every link under the speed cap while dragged in a circle', () => {
-    const rope = createRope(TOP, []);
+  it('falls onto the floor with gravity on', () => {
+    const rope = createRope(START, [FLOOR]);
+    rope.setGravity(true);
+    for (let s = 0; s < 600; s++) rope.step();
+    const lowest = Math.min(...rope.snapshot().points.map((p) => p.y));
+    expect(lowest).toBeGreaterThan(FLOOR.center.y + FLOOR.half.y - 0.01);
+    expect(lowest).toBeLessThan(FLOOR.center.y + FLOOR.half.y + LINK_RADIUS + 0.01);
+    expect(longestStretch(rope.snapshot().points)).toBeLessThan(1.05);
+    rope.dispose();
+  });
+
+  it('falls when gravity is switched on after it has settled', () => {
+    const rope = createRope(START, [FLOOR]);
+    for (let s = 0; s < 600; s++) rope.step();
+    const settled = Math.min(...rope.snapshot().points.map((p) => p.y));
+    rope.setGravity(true);
     for (let s = 0; s < 300; s++) rope.step();
+    expect(Math.min(...rope.snapshot().points.map((p) => p.y))).toBeLessThan(settled - 0.1);
+    rope.dispose();
+  });
+
+  it('does not let links pass through each other when a knot falls', () => {
+    const rope = createRope({ x: 0, y: 0, z: 0 }, [FLOOR], trefoilPose());
+    for (let s = 0; s < 300; s++) rope.step();
+    rope.setGravity(true);
+    let closest = Infinity;
+    for (let s = 0; s < 600; s++) {
+      rope.step();
+      const p = rope.snapshot().points;
+      for (let i = 0; i < p.length; i++) {
+        for (let j = i + 2; j < p.length; j++) {
+          closest = Math.min(closest, Math.hypot(p[i].x - p[j].x, p[i].y - p[j].y, p[i].z - p[j].z));
+        }
+      }
+    }
+    // Contact is two radii apart. Allowing five per cent of overlap is generous.
+    expect(closest).toBeGreaterThan(2 * LINK_RADIUS * 0.95);
+    rope.dispose();
+  });
+
+  it('picks up a link without moving it', () => {
+    const rope = createRope(START, []);
+    for (let s = 0; s < 300; s++) rope.step();
+    const before = rope.snapshot().points[20];
+    rope.grabLink(20, before);
+    rope.step();
+    const after = rope.snapshot().points[20];
+    expect(Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z)).toBeLessThan(0.005);
+    rope.releaseGrab();
+    rope.dispose();
+  });
+
+  it('keeps every link under the speed cap while a middle link is dragged in a circle', () => {
+    const rope = createRope(START, []);
+    for (let s = 0; s < 300; s++) rope.step();
+    const start = rope.snapshot().points[20];
+    rope.grabLink(20, start);
     const radius = 0.4;
     const omega = 1.5 / radius;
     let fastest = 0;
     for (let s = 0; s < 360; s++) {
       const t = s / 60;
-      rope.grab({ x: radius * Math.sin(omega * t), y: TOP.y, z: radius * (1 - Math.cos(omega * t)) });
+      rope.moveGrab({
+        x: start.x + radius * Math.sin(omega * t),
+        y: start.y,
+        z: start.z + radius * (1 - Math.cos(omega * t)),
+      });
       fastest = Math.max(fastest, rope.step());
     }
     expect(fastest).toBeLessThanOrEqual(MAX_LINK_SPEED);
@@ -197,21 +366,54 @@ describe('rope model', () => {
     rope.dispose();
   });
 
-  it('does not pass a link through a bar it is swept across', () => {
-    const bar = { center: { x: 0.3, y: 0, z: 0 }, half: { x: 0.01, y: 1, z: 0.01 } };
-    const rope = createRope({ x: -0.1, y: 1.5, z: 0 }, [bar]);
-    for (let s = 0; s < 120; s++) rope.step();
-    let inside = 0;
+  it('comes to rest after it is released', () => {
+    const rope = createRope(START, []);
+    for (let s = 0; s < 300; s++) rope.step();
+    const start = rope.snapshot().points[20];
+    rope.grabLink(20, start);
     for (let s = 0; s < 120; s++) {
-      rope.grab({ x: -0.1 + 0.9 * (s / 120), y: 1.5, z: 0 });
+      rope.moveGrab({ x: start.x, y: start.y + 0.3 * Math.sin(s / 20), z: start.z });
       rope.step();
-      for (const p of rope.snapshot().points) {
-        // A link centre inside the bar, grown by half a radius, is a pass-through.
-        const margin = 0.01 + 0.5 * LINK_RADIUS;
-        if (Math.abs(p.x - bar.center.x) < margin && Math.abs(p.z) < margin && Math.abs(p.y) < 1) inside++;
-      }
     }
-    expect(inside).toBe(0);
+    rope.releaseGrab();
+    let fastest = 1;
+    for (let s = 0; s < 600; s++) fastest = rope.step();
+    expect(fastest).toBeLessThan(0.02);
+    rope.dispose();
+  });
+
+  it('does not let a quick flick of the mouse throw the rope', () => {
+    const rope = createRope(START, []);
+    for (let s = 0; s < 300; s++) rope.step();
+    const p0 = rope.snapshot().points[20];
+    rope.grabLink(20, p0);
+    let peak = 0;
+    for (let s = 0; s < 240; s++) {
+      // The hand jumps 0.3 m in one frame, then stays still.
+      rope.moveGrab({ x: p0.x + (s >= 10 ? 0.3 : 0), y: p0.y, z: 0 });
+      peak = Math.max(peak, rope.step());
+    }
+    expect(peak).toBeLessThan(1);
+    rope.dispose();
+  });
+
+  it('does not pass a held link through a bar', () => {
+    // A bar lies across the rope's path at its height, and the held link is pushed up through it.
+    const held = 25;
+    const x = START.x + held * LINK_SPACING;
+    const bar = { center: { x, y: 0.4, z: 0 }, half: { x: 0.02, y: 0.02, z: 0.4 } };
+    const rope = createRope(START, [bar]);
+    for (let s = 0; s < 300; s++) rope.step();
+    const start = rope.snapshot().points[held];
+    rope.grabLink(held, start);
+    let highest = -Infinity;
+    for (let s = 0; s < 180; s++) {
+      rope.moveGrab({ x: start.x, y: 0.8, z: 0 });
+      rope.step();
+      highest = Math.max(highest, rope.snapshot().points[held].y);
+    }
+    // The bar's underside is at y = 0.38, so a link under it stays below 0.38 - radius of contact.
+    expect(highest).toBeLessThan(bar.center.y - bar.half.y);
     rope.dispose();
   });
 });

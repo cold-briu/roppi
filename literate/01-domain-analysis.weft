@@ -49,11 +49,12 @@ how they grip under load.
 \section{Closure of open ends}
 
 A rope has two free ends, but a topological knot is a closed curve. For
-recognition, each free end is extended straight back, away from the viewer,
-to a point behind the scene, and the two extensions are joined there. The
-join is never drawn. Because it lies behind everything, any crossing it makes
-with the rope passes under the rope. The rope therefore looks open on screen
-and is closed for recognition.
+recognition, the two ends are joined by a straight segment in space. The
+segment is never drawn. It is part of the diagram like any other piece of rope.
+An earlier closure, through a point behind the scene, was dropped. Whether a
+strand lay in its path depended on how the rope was turned, and it misread a
+trefoil on about a quarter of random turns. The rope looks open on screen and is
+closed for recognition.
 
 \section{Decided knot choices}
 

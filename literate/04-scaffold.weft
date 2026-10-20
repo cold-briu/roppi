@@ -64,6 +64,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
     environment: 'node',
+    // The rope runs four physics substeps per frame, so its tests take seconds.
+    testTimeout: 20000,
     include: ['src/**/*.test.ts'],
   },
 });

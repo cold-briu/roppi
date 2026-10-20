@@ -1,7 +1,7 @@
-// {32: literate/assembly.weft:59}
+// {31: literate/assembly.weft:59}
 
 // Rope: physics model
-// {8: literate/05-rope-model.weft:52}
+// {8: literate/05-rope-model.weft:77}
 
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Box, RopeSnapshot, Vec3 } from './snapshot';
@@ -11,11 +11,21 @@ export const LINK_RADIUS = 0.02;
 export const LINK_SPACING = 0.05;
 export const MAX_LINK_SPEED = 3;
 const SOLVER_ITERATIONS = 32;
-const LINEAR_DAMPING = 0.5;
+// Physics steps per frame. Links move about a diameter per step when the rope falls,
+// and with one step they pass into each other. Four steps stop that.
+const SUBSTEPS = 4;
+const LINEAR_DAMPING = 4;
+// The held point follows the hand no faster than this, so a quick flick cannot throw the rope.
+const HAND_SPEED = 1.5;
+// The held link is steered toward the held point at this rate, per second.
+const STEER_GAIN = 8;
 const GRAVITY = -9.81;
 
 export interface Rope {
-  grab(target: Vec3): void;
+  grabLink(index: number, target: Vec3): void;
+  moveGrab(target: Vec3): void;
+  releaseGrab(): void;
+  setGravity(on: boolean): void;
   step(): number;
   snapshot(): RopeSnapshot;
   dispose(): void;
@@ -28,19 +38,19 @@ export function initPhysics(): Promise<void> {
   return ready;
 }
 
-export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
-  const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
+// A rope lying straight from start along the x axis, with its first link at start.
+// With a pose, the links start at the given centres instead; the tests use this to start from a knot.
+export function createRope(start: Vec3, obstacles: readonly Box[], pose?: Vec3[]): Rope {
+  const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
   world.numSolverIterations = SOLVER_ITERATIONS;
-
-  const grab = world.createRigidBody(
-    RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(top.x, top.y, top.z),
-  );
+  world.timestep = 1 / 60 / SUBSTEPS;
 
   const links: RAPIER.RigidBody[] = [];
   for (let i = 0; i < LINK_COUNT; i++) {
+    const at = pose?.[i] ?? { x: start.x + i * LINK_SPACING, y: start.y, z: start.z };
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(top.x, top.y - i * LINK_SPACING, top.z)
+        .setTranslation(at.x, at.y, at.z)
         .setLinearDamping(LINEAR_DAMPING)
         .setCcdEnabled(true),
     );
@@ -49,15 +59,8 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
   }
 
   const origin = { x: 0, y: 0, z: 0 };
-  world.createImpulseJoint(RAPIER.JointData.spherical(origin, origin), grab, links[0], true);
   for (let i = 0; i < LINK_COUNT - 1; i++) {
-    const joint = world.createImpulseJoint(
-      RAPIER.JointData.rope(LINK_SPACING, origin, origin),
-      links[i],
-      links[i + 1],
-      true,
-    );
-    joint.setContactsEnabled(false);
+    world.createImpulseJoint(RAPIER.JointData.rope(LINK_SPACING, origin, origin), links[i], links[i + 1], true);
   }
 
   for (const box of obstacles) {
@@ -67,21 +70,74 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
     world.createCollider(RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z), body);
   }
 
+  // The held link, where the hand has asked it to be (goal), and the point it is
+  // steered toward (point), which follows the goal no faster than HAND_SPEED.
+  let held: { index: number; goal: Vec3; point: Vec3 } | null = null;
+
+  const releaseGrab = () => {
+    held = null;
+  };
+
+  // Steers the held link toward its goal by setting its velocity. A contact can
+  // still take that velocity away, so the link stops at a bar instead of passing it.
+  const steerHeld = () => {
+    if (!held) return;
+    const link = links[held.index];
+    const at = link.translation();
+    const dt = world.timestep;
+    const { goal, point } = held;
+    const dx = goal.x - point.x;
+    const dy = goal.y - point.y;
+    const dz = goal.z - point.z;
+    const gap = Math.hypot(dx, dy, dz);
+    if (gap > 0) {
+      const move = Math.min(gap, HAND_SPEED * dt) / gap;
+      point.x += dx * move;
+      point.y += dy * move;
+      point.z += dz * move;
+    }
+    const v = {
+      x: STEER_GAIN * (point.x - at.x),
+      y: STEER_GAIN * (point.y - at.y),
+      z: STEER_GAIN * (point.z - at.z),
+    };
+    const speed = Math.hypot(v.x, v.y, v.z);
+    if (speed > MAX_LINK_SPEED) {
+      const scale = MAX_LINK_SPEED / speed;
+      v.x *= scale;
+      v.y *= scale;
+      v.z *= scale;
+    }
+    link.setLinvel(v, true);
+  };
+
   return {
-    grab(target) {
-      grab.setNextKinematicTranslation(target);
+    grabLink(index, target) {
+      held = { index, goal: { ...target }, point: { ...links[index].translation() } };
+    },
+    moveGrab(target) {
+      if (held) held.goal = { ...target };
+    },
+    releaseGrab,
+    setGravity(on) {
+      world.gravity = on ? { x: 0, y: GRAVITY, z: 0 } : { x: 0, y: 0, z: 0 };
+      // A settled link sleeps, and a sleeping link ignores a change of gravity until it wakes.
+      for (const body of links) body.wakeUp();
     },
     step() {
-      world.step();
       let fastest = 0;
-      for (const body of links) {
-        const v = body.linvel();
-        const speed = Math.hypot(v.x, v.y, v.z);
-        if (speed > MAX_LINK_SPEED) {
-          const scale = MAX_LINK_SPEED / speed;
-          body.setLinvel({ x: v.x * scale, y: v.y * scale, z: v.z * scale }, true);
+      for (let k = 0; k < SUBSTEPS; k++) {
+        steerHeld();
+        world.step();
+        for (const body of links) {
+          const v = body.linvel();
+          const speed = Math.hypot(v.x, v.y, v.z);
+          if (speed > MAX_LINK_SPEED) {
+            const scale = MAX_LINK_SPEED / speed;
+            body.setLinvel({ x: v.x * scale, y: v.y * scale, z: v.z * scale }, true);
+          }
+          fastest = Math.max(fastest, Math.min(speed, MAX_LINK_SPEED));
         }
-        fastest = Math.max(fastest, Math.min(speed, MAX_LINK_SPEED));
       }
       return fastest;
     },
@@ -95,4 +151,4 @@ export function createRope(top: Vec3, obstacles: readonly Box[]): Rope {
 }
 // {:8}
 
-// {:32}
+// {:31}

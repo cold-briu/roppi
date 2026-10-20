@@ -41,12 +41,17 @@ The rope cannot pass through itself or through an anchor, because Rapier's
 contacts keep the links apart. Continuous collision detection is switched on
 for the links, so that a fast drag does not pass a link through another.
 
-Each joint is created with contacts between its two links disabled, so
-neighbouring links never push on each other. Collision groups keep the links
-from touching other links where they should not.
+Neighbouring links do collide. This was first planned otherwise: contacts
+between neighbours were to be disabled, so that a joint alone kept them apart.
+A joint only limits how far links can separate, so with contacts disabled a
+lifted link could pass through the one beside it. The rope now keeps contacts
+between all pairs, and the joint still holds the spacing.
 
-The grab point is a kinematic body moved by the mouse. A kinematic body is not
-pushed by contacts, so the rope never blocks the player's hand.
+The grab steers one link toward the mouse by setting its velocity each step. It
+can hold any link. Neither end of the rope is fixed. It is not a joint: a joint pulls with a
+force the contacts cannot overcome, so a held link passed through a bar. The
+hand is only a target, so it moves freely, and the held link stops where it meets
+an obstacle.
 
 Each frame, the link centres are smoothed with a Catmull-Rom curve. The tube's
 vertices are rewritten into a buffer that is allocated once. The rope
@@ -77,11 +82,14 @@ Rendering runs on demand. The frame loop runs while the rope moves and stops
 when it settles, as the three.js manual advises for scenes that change only on
 input.
 
-\section{Decision: closure is a point behind the background}
+\section{Decision: closure is a straight segment between the ends}
 
-For recognition only, the closure described in the analysis is used. The join
-lies behind everything, so the crossings it makes count as passing under the
-rope. This needs no special case in the topology code.
+For recognition only, the two free ends are joined by a straight segment, and
+the loop is read from there. The first choice was a path through a point behind
+the scene, as the analysis first described. It was dropped: over 200 random turns
+of a trefoil it misread 49 of them as an unknot, because a strand of the rope
+could lie in the path, depending on how the rope was turned. The straight segment
+misread none, and it does not depend on the view.
 
 \section{Decision: recognition by planar projection and invariants}
 

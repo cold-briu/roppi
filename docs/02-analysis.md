@@ -13,7 +13,7 @@ review. Builds on [01-domain.md](01-domain.md) and
 | Friction hitches | Shape only. No holding or slip behaviour. |
 | Topology of anchored knots | A rope plus its anchor objects is one knot. |
 | Technical checks | Check against technical references and do further research as needed. See [02-knots-research.md](02-knots-research.md). |
-| Closure of open ends | The two free ends are joined through a point behind the background, outside the view. The rope is closed for topology, and recognition runs on that closed form. The join is never drawn. |
+| Closure of open ends | The two free ends are joined by a straight segment for recognition. The segment is never drawn. The earlier closure through a point behind the background was dropped: it misread a trefoil on about a quarter of random turns. |
 | Sources | Web sources only. Certified references (UIAA, AMGA, BMC, ABOK) are not being pursued. |
 | Rappel stopper | Teach all stopper options: double overhand, triple overhand (barrel), and overhand on a bight. None is the only correct answer. |
 | Joining two ropes for rappel | Teach all options: double overhand and flat overhand. |
@@ -97,8 +97,10 @@ Chunk names start with these terms, for example `Rope: strand`,
 
 ## Resolved in review
 
-- **Closure** is decided above. The join is outside the view, so the rope
-  reads as open on screen but is closed for recognition.
+- **Closure** was decided as a point behind the background, then revised to a
+  straight segment between the ends. The behind closure misread a trefoil on
+  about a quarter of random turns; the straight segment misread none. The rope
+  still reads as open on screen.
 - **Rappel stopper, rope joining and figure-eight stopper** are decided above.
   All stopper options and joining options are taught. The figure-eight stopper
   is optional.

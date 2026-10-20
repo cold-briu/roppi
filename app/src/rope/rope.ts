@@ -1,20 +1,23 @@
 // {39: literate/assembly.weft:59}
 
 // Rope: physics model
-// {8: literate/05-rope-model.weft:77}
+// {8: literate/05-rope-model.weft:85}
 
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Box, RopeSnapshot, Vec3 } from './snapshot';
 
-export const LINK_COUNT = 40;
+export const LINK_COUNT = 80;
 export const LINK_RADIUS = 0.02;
-export const LINK_SPACING = 0.05;
+export const LINK_SPACING = 0.025;
 export const MAX_LINK_SPEED = 3;
 const SOLVER_ITERATIONS = 32;
 // Physics steps per frame. Links move about a diameter per step when the rope falls,
 // and with one step they pass into each other. Four steps stop that.
 const SUBSTEPS = 4;
 const LINEAR_DAMPING = 4;
+// Each link has half the density it had at forty links, so the whole rope weighs
+// the same as before. Eighty links at full density made the rope feel twice as heavy.
+const LINK_DENSITY = 0.5;
 // The held point follows the hand no faster than this, so a quick flick cannot throw the rope.
 const HAND_SPEED = 1.5;
 // The held link is steered toward the held point at this rate, per second.
@@ -54,7 +57,7 @@ export function createRope(start: Vec3, obstacles: readonly Box[], pose?: Vec3[]
         .setLinearDamping(LINEAR_DAMPING)
         .setCcdEnabled(true),
     );
-    world.createCollider(RAPIER.ColliderDesc.ball(LINK_RADIUS), body);
+    world.createCollider(RAPIER.ColliderDesc.ball(LINK_RADIUS).setDensity(LINK_DENSITY), body);
     links.push(body);
   }
 

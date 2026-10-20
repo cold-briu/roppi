@@ -1,7 +1,7 @@
 // {40: literate/assembly.weft:63}
 
 // Rope: tests
-// {9: literate/05-rope-model.weft:233}
+// {9: literate/05-rope-model.weft:244}
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { LINK_COUNT, LINK_RADIUS, LINK_SPACING, MAX_LINK_SPEED, createRope, initPhysics } from './rope';
